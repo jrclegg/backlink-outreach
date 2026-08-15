@@ -14,6 +14,10 @@ use Symfony\Component\Mime\Email;
 
 class InboxForm extends Component
 {
+    // OAuth flow state
+    public bool $showOAuthOptions = true;
+    public bool $showManualForm = false;
+
     #[Validate('required|string')]
     public string $name = '';
 
@@ -200,6 +204,24 @@ class InboxForm extends Component
         ]);
 
         $this->redirect(route('inboxes.index'));
+    }
+
+    public function connectWithOAuth(string $provider)
+    {
+        $this->validate(['name', 'from_name']);
+
+        $url = route('inboxes.connect', $provider, [
+            'name' => $this->name,
+            'from_name' => $this->from_name,
+        ]);
+
+        return $this->redirect($url, navigate: false);
+    }
+
+    public function toggleManualForm()
+    {
+        $this->showManualForm = !$this->showManualForm;
+        $this->showOAuthOptions = !$this->showOAuthOptions;
     }
 
     public function render()

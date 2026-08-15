@@ -18,6 +18,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/inboxes', App\Livewire\Inboxes\InboxList::class)->name('inboxes.index');
     Route::get('/inboxes/add', App\Livewire\Inboxes\InboxForm::class)->name('inboxes.create');
+    Route::get('/inboxes/connect/{provider}', [App\Http\Controllers\OAuthInboxController::class, 'connect'])->name('inboxes.connect');
+    Route::get('/inboxes/connect/{provider}/callback', [App\Http\Controllers\OAuthInboxController::class, 'callback'])->name('inboxes.callback');
 
     Route::get('/prospects/import', App\Livewire\Prospects\ProspectImport::class)->name('prospects.import');
 

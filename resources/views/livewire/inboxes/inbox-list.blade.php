@@ -14,11 +14,25 @@
             @foreach($inboxes as $inbox)
                 <div class="border border-border rounded-lg p-6">
                     <div class="flex items-center justify-between">
-                        <div>
-                            <h3 class="text-heading">{{ $inbox->name }}</h3>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-heading">{{ $inbox->name }}</h3>
+                                @if($inbox->oauth_provider)
+                                    <span class="px-2 py-1 text-caption rounded bg-blue-100 text-blue-800">{{ ucfirst($inbox->oauth_provider) }}</span>
+                                @endif
+                            </div>
                             <p class="text-caption mt-1">{{ $inbox->email_address }}</p>
+                            @if($inbox->last_verified_at)
+                                <p class="text-caption text-secondary mt-1">Last verified: {{ $inbox->last_verified_at->diffForHumans() }}</p>
+                            @endif
                         </div>
-                        <x-ui.status-pill :status="$inbox->is_active ? 'connected' : 'disconnected'" />
+                        <div class="ml-4">
+                            @if($inbox->getConnectionStatus() === 'token_expired')
+                                <x-ui.status-pill :status="'warning'" />
+                            @else
+                                <x-ui.status-pill :status="$inbox->is_active ? 'connected' : 'disconnected'" />
+                            @endif
+                        </div>
                     </div>
                 </div>
             @endforeach

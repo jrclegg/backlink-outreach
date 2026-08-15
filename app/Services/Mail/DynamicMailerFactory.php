@@ -10,6 +10,16 @@ class DynamicMailerFactory
 {
     public function make(EmailInbox $inbox): Mailer
     {
+        // For OAuth connections, we need to ensure the token is valid
+        if ($inbox->isOAuthConnected()) {
+            // Ensure token is refreshed if needed
+            $tokenRefreshService = app(TokenRefreshService::class);
+            if (!$tokenRefreshService->ensureTokenValid($inbox)) {
+                throw new \Exception('Failed to refresh OAuth token for ' . $inbox->email_address);
+            }
+            $inbox->refresh();
+        }
+
         $scheme = $inbox->smtp_encryption === 'ssl' ? 'smtps' : 'smtp';
         $dsn = sprintf(
             '%s://%s:%s@%s:%d',
