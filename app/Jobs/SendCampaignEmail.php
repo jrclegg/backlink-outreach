@@ -59,6 +59,12 @@ class SendCampaignEmail implements ShouldQueue
             $body = str_replace('{{company}}', '', $body);
             $body = str_replace('{{ai_intro}}', $recipient->ai_intro_text ?? '', $body);
 
+            // Add unsubscribe link to body (footer)
+            $unsubscribeUrl = route('unsubscribe.show', ['token' => $recipient->token]);
+            $body .= "\n\n<p style=\"font-size: 12px; color: #999; margin-top: 40px;\">" .
+                "<a href=\"{$unsubscribeUrl}\" style=\"color: #999; text-decoration: none;\">Unsubscribe</a>" .
+                "</p>";
+
             // Send email
             $factory = new DynamicMailerFactory();
             $mailer = $factory->make($campaign->emailInbox);
