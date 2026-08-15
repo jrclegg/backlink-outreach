@@ -29,6 +29,18 @@
                     <a href="{{ route('dashboard') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Dashboard</a>
                     <a href="{{ route('projects.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Projects</a>
                     <a href="{{ route('inboxes.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Email Inboxes</a>
+
+                    <!-- Discovery Section -->
+                    <div class="mt-6">
+                        <p class="px-4 py-2 text-caption font-medium text-text-muted">Discovery</p>
+                        <a href="{{ route('backlink-graph.search') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Backlink Search</a>
+                    </div>
+
+                    <!-- Admin Section -->
+                    <div class="mt-6">
+                        <p class="px-4 py-2 text-caption font-medium text-text-muted">Admin</p>
+                        <a href="{{ route('suppressions.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Suppression List</a>
+                    </div>
                 @endif
             </nav>
 
