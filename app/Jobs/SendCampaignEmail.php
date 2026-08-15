@@ -4,7 +4,7 @@ namespace App\Jobs;
 
 use App\Models\CampaignRecipient;
 use App\Models\Suppression;
-use App\Services\Mail\DynamicMailerFactory;
+use App\Services\Mail\OAuthAwareMailerFactory;
 use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -66,8 +66,7 @@ class SendCampaignEmail implements ShouldQueue
                 "</p>";
 
             // Send email
-            $factory = new DynamicMailerFactory();
-            $mailer = $factory->make($campaign->emailInbox);
+            $factory = app(OAuthAwareMailerFactory::class);
 
             $email = new Email();
             $email->from($campaign->emailInbox->email_address, $campaign->emailInbox->from_name)
@@ -77,7 +76,7 @@ class SendCampaignEmail implements ShouldQueue
                 ->getHeaders()
                 ->addTextHeader('Message-ID', $recipient->message_id);
 
-            $mailer->send($email);
+            $factory->send($campaign->emailInbox, $email);
 
             // Update recipient
             $recipient->update([
