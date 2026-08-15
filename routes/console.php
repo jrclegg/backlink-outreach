@@ -22,6 +22,7 @@ Schedule::call(function () {
         PollInboxForReplies::dispatch($inbox);
     });
 })->everyFiveMinutes()
+    ->name('poll-inboxes')
     ->withoutOverlapping();
 
 Schedule::job(new ScheduleBacklinkChecks)
