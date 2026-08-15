@@ -50,7 +50,7 @@ class BacklinkGraphSearch extends Component
             }
 
             // Create or update prospect from backlink
-            Prospect::updateOrCreate(
+            $prospect = Prospect::updateOrCreate(
                 [
                     'project_id' => $project->id,
                     'site_url' => $link->source_url,
@@ -59,19 +59,9 @@ class BacklinkGraphSearch extends Component
                     'contact_email' => '', // To be extracted later
                     'status' => 'new',
                     'source' => 'backlink_graph_search',
+                    'niche' => $link->anchor_text, // Store anchor text as niche for reference
                 ]
             );
-
-            // Store the anchor text if available
-            $recipient = $project->campaigns()
-                ->latest()
-                ->first()
-                ?->recipients()
-                ?->first();
-
-            if ($recipient && $link->anchor_text) {
-                $recipient->update(['anchor_text' => $link->anchor_text]);
-            }
 
             session()->flash('success', 'Added prospect from backlink');
         } catch (\Exception $e) {
@@ -114,6 +104,7 @@ class BacklinkGraphSearch extends Component
                             'contact_email' => '',
                             'status' => 'new',
                             'source' => 'backlink_graph_search',
+                            'niche' => $link->anchor_text,
                         ]
                     );
                     $count++;
