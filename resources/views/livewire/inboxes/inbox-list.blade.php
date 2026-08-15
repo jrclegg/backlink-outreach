@@ -4,9 +4,9 @@
             <h1 class="text-display">Email Inboxes</h1>
             <p class="text-caption mt-2">Manage your SMTP and IMAP credentials</p>
         </div>
-        <button class="px-4 py-2 bg-accent text-white rounded-lg text-body hover:opacity-90 transition-opacity">
+        <a href="{{ route('inboxes.create') }}" wire:navigate class="px-4 py-2 bg-accent text-white rounded-lg text-body hover:opacity-90 transition-opacity">
             + Add Inbox
-        </button>
+        </a>
     </div>
 
     @if($inboxes->count() > 0)
