@@ -12,6 +12,12 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Actions\RedirectIfTwoFactorAuthenticatable;
+use Laravel\Fortify\Contracts\LoginViewResponse;
+use Laravel\Fortify\Contracts\RegisterViewResponse;
+use Laravel\Fortify\Contracts\ResetPasswordViewResponse;
+use Laravel\Fortify\Contracts\RequestPasswordResetLinkViewResponse;
+use Laravel\Fortify\Contracts\TwoFactorChallengeViewResponse;
+use Laravel\Fortify\Contracts\VerifyEmailViewResponse;
 use Laravel\Fortify\Fortify;
 
 class FortifyServiceProvider extends ServiceProvider
@@ -21,7 +27,53 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(LoginViewResponse::class, function () {
+            return new class implements LoginViewResponse {
+                public function toResponse($request) {
+                    return view('auth.login');
+                }
+            };
+        });
+
+        $this->app->singleton(RegisterViewResponse::class, function () {
+            return new class implements RegisterViewResponse {
+                public function toResponse($request) {
+                    return view('auth.register');
+                }
+            };
+        });
+
+        $this->app->singleton(TwoFactorChallengeViewResponse::class, function () {
+            return new class implements TwoFactorChallengeViewResponse {
+                public function toResponse($request) {
+                    return view('auth.two-factor-challenge');
+                }
+            };
+        });
+
+        $this->app->singleton(RequestPasswordResetLinkViewResponse::class, function () {
+            return new class implements RequestPasswordResetLinkViewResponse {
+                public function toResponse($request) {
+                    return view('auth.forgot-password');
+                }
+            };
+        });
+
+        $this->app->singleton(ResetPasswordViewResponse::class, function () {
+            return new class implements ResetPasswordViewResponse {
+                public function toResponse($request) {
+                    return view('auth.reset-password', ['request' => $request]);
+                }
+            };
+        });
+
+        $this->app->singleton(VerifyEmailViewResponse::class, function () {
+            return new class implements VerifyEmailViewResponse {
+                public function toResponse($request) {
+                    return view('auth.verify-email');
+                }
+            };
+        });
     }
 
     /**
