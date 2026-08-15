@@ -24,11 +24,21 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/campaigns/new', App\Livewire\Campaigns\CampaignBuilder::class)->name('campaigns.create');
     Route::get('/campaigns/{campaign}', App\Livewire\Campaigns\CampaignShow::class)->name('campaigns.show');
 
+    // Discovery routes
+    Route::get('/backlink-graph/search', App\Livewire\Discovery\BacklinkGraphSearch::class)->name('backlink-graph.search');
+
+    // Suppression routes
+    Route::get('/suppressions', App\Livewire\Suppressions\SuppressionList::class)->name('suppressions.index');
+
     Route::post('/logout', function () {
         Auth::logout();
         return redirect('/login');
     })->name('logout');
 });
+
+// Public unsubscribe routes
+Route::get('/u/{token}', [App\Http\Controllers\UnsubscribeController::class, 'show'])->name('unsubscribe.show');
+Route::post('/u/{token}', [App\Http\Controllers\UnsubscribeController::class, 'store'])->name('unsubscribe.store');
 
 // Public tracking routes
 Route::get('/t/o/{token}.gif', [App\Http\Controllers\TrackingController::class, 'open'])->name('tracking.open');
