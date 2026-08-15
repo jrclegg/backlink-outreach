@@ -9,6 +9,21 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 
+    /* Font sizes */
+    --font-size-display: 1.75rem;
+    --font-size-heading: 1.125rem;
+    --font-size-body: 0.875rem;
+    --font-size-caption: 0.8125rem;
+    --font-size-label: 0.8125rem;
+    --font-size-mono: 0.8125rem;
+
+    /* Line heights */
+    --line-height-display: 2.25rem;
+    --line-height-heading: 1.75rem;
+    --line-height-body: 1.375rem;
+    --line-height-caption: 1.125rem;
+    --line-height-label: 1.125rem;
+
     /* Color Palette */
     --color-accent: var(--color-teal-600);
     --color-accent-content: var(--color-teal-600);
@@ -31,27 +46,38 @@
 /* Typography Utilities */
 @layer utilities {
     .text-display {
-        @apply text-28px leading-36px font-semibold;
+        font-size: var(--font-size-display);
+        line-height: var(--line-height-display);
+        @apply font-semibold;
     }
 
     .text-heading {
-        @apply text-18px leading-28px font-semibold;
+        font-size: var(--font-size-heading);
+        line-height: var(--line-height-heading);
+        @apply font-semibold;
     }
 
     .text-body {
-        @apply text-14px leading-22px font-regular;
+        font-size: var(--font-size-body);
+        line-height: var(--line-height-body);
+        @apply font-normal;
     }
 
     .text-caption {
-        @apply text-13px leading-18px text-muted font-regular;
+        font-size: var(--font-size-caption);
+        line-height: var(--line-height-caption);
+        @apply font-normal text-text-muted;
     }
 
     .text-label {
-        @apply text-13px leading-18px font-medium uppercase tracking-wider text-muted;
+        font-size: var(--font-size-label);
+        line-height: var(--line-height-label);
+        @apply font-medium uppercase tracking-wider text-text-muted;
     }
 
     .text-mono {
-        @apply text-13px font-mono;
+        font-size: var(--font-size-mono);
+        @apply font-mono;
     }
 }
 
