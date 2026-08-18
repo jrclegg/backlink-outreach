@@ -30,10 +30,24 @@
                     <a href="{{ route('projects.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Projects</a>
                     <a href="{{ route('inboxes.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Email Inboxes</a>
 
+                    <!-- Prospects Section -->
+                    <div class="mt-6">
+                        <p class="px-4 py-2 text-caption font-medium text-text-muted">Prospects</p>
+                        <a href="{{ route('prospects.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">View All</a>
+                        <a href="{{ route('prospects.import') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Import CSV</a>
+                    </div>
+
                     <!-- Discovery Section -->
                     <div class="mt-6">
                         <p class="px-4 py-2 text-caption font-medium text-text-muted">Discovery</p>
+                        <a href="{{ route('discover.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Find Prospects</a>
                         <a href="{{ route('backlink-graph.search') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Backlink Search</a>
+                    </div>
+
+                    <!-- Campaigns Section -->
+                    <div class="mt-6">
+                        <p class="px-4 py-2 text-caption font-medium text-text-muted">Campaigns</p>
+                        <a href="{{ route('campaigns.create') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">New Campaign</a>
                     </div>
 
                     <!-- Admin Section -->

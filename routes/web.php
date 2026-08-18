@@ -18,15 +18,16 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/inboxes', App\Livewire\Inboxes\InboxList::class)->name('inboxes.index');
     Route::get('/inboxes/add', App\Livewire\Inboxes\InboxForm::class)->name('inboxes.create');
-    Route::get('/inboxes/connect/{provider}', [App\Http\Controllers\OAuthInboxController::class, 'connect'])->name('inboxes.connect');
-    Route::get('/inboxes/connect/{provider}/callback', [App\Http\Controllers\OAuthInboxController::class, 'callback'])->name('inboxes.callback');
 
+    Route::get('/prospects', App\Livewire\Prospects\ProspectsIndex::class)->name('prospects.index');
     Route::get('/prospects/import', App\Livewire\Prospects\ProspectImport::class)->name('prospects.import');
 
     Route::get('/campaigns/new', App\Livewire\Campaigns\CampaignBuilder::class)->name('campaigns.create');
     Route::get('/campaigns/{campaign}', App\Livewire\Campaigns\CampaignShow::class)->name('campaigns.show');
 
     // Discovery routes
+    Route::get('/discover', App\Livewire\Discovery\DiscoveryQueryForm::class)->name('discover.index');
+    Route::get('/discover/{query}', App\Livewire\Discovery\DiscoveryResultsList::class)->name('discover.results');
     Route::get('/backlink-graph/search', App\Livewire\Discovery\BacklinkGraphSearch::class)->name('backlink-graph.search');
 
     // Suppression routes
