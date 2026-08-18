@@ -29,7 +29,7 @@ class ProspectCreate extends Component
     {
         $this->validate([
             'siteUrl' => 'required|url',
-            'contactEmail' => 'required|email',
+            'contactEmail' => 'nullable|email',
             'contactName' => 'nullable|string|max:255',
             'niche' => 'nullable|string|max:255',
             'notes' => 'nullable|string|max:1000',
@@ -43,14 +43,16 @@ class ProspectCreate extends Component
             return;
         }
 
-        // Check if prospect already exists
-        $existing = Prospect::where('project_id', $project->id)
-            ->where('contact_email', $this->contactEmail)
-            ->exists();
+        // Check if prospect already exists (only if email is provided)
+        if ($this->contactEmail) {
+            $existing = Prospect::where('project_id', $project->id)
+                ->where('contact_email', $this->contactEmail)
+                ->exists();
 
-        if ($existing) {
-            $this->addError('contactEmail', 'This email already exists in your prospects');
-            return;
+            if ($existing) {
+                $this->addError('contactEmail', 'This email already exists in your prospects');
+                return;
+            }
         }
 
         Prospect::create([

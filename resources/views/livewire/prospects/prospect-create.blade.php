@@ -42,6 +42,7 @@
                         placeholder="https://example.com"
                         class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                     >
+                    <p class="text-text-muted text-xs mt-1">The domain of the site with the backlink</p>
                     @error('siteUrl')
                         <p class="text-danger text-sm mt-1">{{ $message }}</p>
                     @enderror
@@ -63,13 +64,14 @@
 
                 <!-- Contact Email -->
                 <div>
-                    <label class="block text-sm font-medium text-text-primary mb-2">Contact Email *</label>
+                    <label class="block text-sm font-medium text-text-primary mb-2">Contact Email</label>
                     <input
                         type="email"
                         wire:model="contactEmail"
                         placeholder="contact@example.com"
                         class="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                     >
+                    <p class="text-text-muted text-xs mt-1">Optional — you can leave blank if you need to find it later or will submit a contact form</p>
                     @error('contactEmail')
                         <p class="text-danger text-sm mt-1">{{ $message }}</p>
                     @enderror
@@ -123,8 +125,13 @@
         </div>
 
         <!-- Info -->
-        <div class="bg-blue-subtle border border-blue rounded-lg p-4 text-sm text-blue-dark">
-            <strong>Tip:</strong> You can also import multiple prospects at once using the CSV import feature, or discover prospects automatically using the backlink search.
+        <div class="bg-blue-subtle border border-blue rounded-lg p-4 text-sm text-blue-dark space-y-2">
+            <div><strong>Tips:</strong></div>
+            <ul class="list-disc list-inside space-y-1">
+                <li>Email is optional — you can add notes about where to find the contact info</li>
+                <li>If you need to submit a contact form to get their email, add that detail in the notes field</li>
+                <li>You can also import multiple prospects at once using CSV import, or discover them automatically with backlink search</li>
+            </ul>
         </div>
     </div>
 </div>
