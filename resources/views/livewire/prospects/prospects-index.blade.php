@@ -7,10 +7,13 @@
                 <p class="text-text-muted text-sm mt-1">Manage and track your outreach targets</p>
             </div>
             <div class="flex gap-2">
-                <a href="{{ route('prospects.import') }}" wire:navigate class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
+                <a href="{{ route('prospects.create') }}" wire:navigate class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
+                    + Add Prospect
+                </a>
+                <a href="{{ route('prospects.import') }}" wire:navigate class="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors">
                     Import CSV
                 </a>
-                <a href="{{ route('discover.index') }}" wire:navigate class="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors">
+                <a href="{{ route('discover.index') }}" wire:navigate class="px-4 py-2 bg-tertiary text-white rounded-lg hover:bg-tertiary-dark transition-colors">
                     Discover
                 </a>
             </div>

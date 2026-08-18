@@ -34,6 +34,7 @@
                     <div class="mt-6">
                         <p class="px-4 py-2 text-caption font-medium text-text-muted">Prospects</p>
                         <a href="{{ route('prospects.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">View All</a>
+                        <a href="{{ route('prospects.create') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Add Manually</a>
                         <a href="{{ route('prospects.import') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Import CSV</a>
                     </div>
 

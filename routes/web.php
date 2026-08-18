@@ -20,6 +20,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/inboxes/add', App\Livewire\Inboxes\InboxForm::class)->name('inboxes.create');
 
     Route::get('/prospects', App\Livewire\Prospects\ProspectsIndex::class)->name('prospects.index');
+    Route::get('/prospects/add', App\Livewire\Prospects\ProspectCreate::class)->name('prospects.create');
     Route::get('/prospects/import', App\Livewire\Prospects\ProspectImport::class)->name('prospects.import');
 
     Route::get('/campaigns/new', App\Livewire\Campaigns\CampaignBuilder::class)->name('campaigns.create');
