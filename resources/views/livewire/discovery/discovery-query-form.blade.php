@@ -13,11 +13,11 @@
                 <input
                     type="text"
                     wire:model="search_phrase"
-                    placeholder="e.g., write for us technology, guest posts marketing, contribute blog"
+                    placeholder="e.g., write for us coworking, guest post technology, contribute blog"
                     class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-primary"
                     :disabled="searching"
                 />
-                <p class="text-caption text-text-muted mt-1">Enter any search phrase to find websites. Results show URL and auto-extracted contact emails.</p>
+                <p class="text-caption text-text-muted mt-1">Best results with: "write for us [topic]", "guest post [topic]", or "contribute [topic]"</p>
                 @error('search_phrase') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
             </div>
 
@@ -88,6 +88,21 @@
             </div>
         </div>
     @endif
+
+    <!-- Help Section -->
+    <div class="border border-blue rounded-lg p-4 bg-blue-subtle mb-8">
+        <h3 class="text-body font-medium text-blue-dark mb-2">💡 Search Tips</h3>
+        <div class="text-caption text-blue-dark space-y-1">
+            <p><strong>Works best with:</strong> "write for us coworking", "guest post technology", "submit article marketing"</p>
+            <p><strong>Don't include:</strong> Location modifiers like "oxford" (use topic/niche instead)</p>
+            <p><strong>Alternative methods:</strong></p>
+            <ul class="list-disc list-inside ml-2 mt-1">
+                <li><a href="{{ route('prospects.create') }}" wire:navigate class="text-primary hover:underline">Manually add prospects</a></li>
+                <li><a href="{{ route('prospects.import') }}" wire:navigate class="text-primary hover:underline">Import from CSV</a></li>
+                <li>Or find prospects manually and import them</li>
+            </ul>
+        </div>
+    </div>
 
     <!-- Recent Queries -->
     @if($queries->count() > 0)
