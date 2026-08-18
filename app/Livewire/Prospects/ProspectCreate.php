@@ -43,8 +43,8 @@ class ProspectCreate extends Component
             return;
         }
 
-        // Check if prospect already exists (only if email is provided)
-        if ($this->contactEmail) {
+        // Check if prospect already exists (only if email is provided and non-empty)
+        if (!empty($this->contactEmail)) {
             $existing = Prospect::where('project_id', $project->id)
                 ->where('contact_email', $this->contactEmail)
                 ->exists();
@@ -58,10 +58,10 @@ class ProspectCreate extends Component
         Prospect::create([
             'project_id' => $project->id,
             'site_url' => $this->siteUrl,
-            'contact_email' => $this->contactEmail,
-            'contact_name' => $this->contactName,
-            'niche' => $this->niche,
-            'notes' => $this->notes,
+            'contact_email' => $this->contactEmail ?: null,
+            'contact_name' => $this->contactName ?: null,
+            'niche' => $this->niche ?: null,
+            'notes' => $this->notes ?: null,
             'status' => 'new',
             'source' => 'manual',
         ]);
