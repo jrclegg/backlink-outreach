@@ -176,6 +176,15 @@
                                     </td>
                                     <td class="px-4 py-3 text-sm text-right">
                                         <div class="flex justify-end gap-2">
+                                            @if($prospect->contact_email)
+                                                <a
+                                                    href="{{ route('prospects.email', $prospect) }}"
+                                                    wire:navigate
+                                                    class="px-2 py-1 text-primary hover:bg-primary-subtle rounded transition-colors text-xs font-medium"
+                                                >
+                                                    ✉️ Email
+                                                </a>
+                                            @endif
                                             <button
                                                 wire:click="deleteProspect({{ $prospect->id }})"
                                                 onclick="confirm('Delete this prospect?') || event.stopImmediatePropagation()"

@@ -21,6 +21,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/prospects', App\Livewire\Prospects\ProspectsIndex::class)->name('prospects.index');
     Route::get('/prospects/add', App\Livewire\Prospects\ProspectCreate::class)->name('prospects.create');
+    Route::get('/prospects/{prospect}/email', App\Livewire\Prospects\SendProspectEmail::class)->name('prospects.email');
     Route::get('/prospects/import', App\Livewire\Prospects\ProspectImport::class)->name('prospects.import');
 
     Route::get('/campaigns/new', App\Livewire\Campaigns\CampaignBuilder::class)->name('campaigns.create');
