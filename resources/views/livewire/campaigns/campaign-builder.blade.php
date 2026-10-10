@@ -83,7 +83,7 @@
 
                     <div class="mb-4">
                         <label class="text-label block mb-2">Body</label>
-                        <textarea wire:model="steps.{{ $index }}.body" placeholder="Email body - use {{first_name}}, {{email}}, {{company}}, {{ai_intro}} as tokens" rows="6" class="w-full px-4 py-2 border border-border rounded-lg font-mono text-13px"></textarea>
+                        <textarea wire:model="steps.{{ $index }}.body" placeholder="Email body - use @{{first_name}}, @{{email}}, @{{company}}, @{{ai_intro}} as tokens" rows="6" class="w-full px-4 py-2 border border-border rounded-lg font-mono text-13px"></textarea>
                     </div>
                 </div>
             @endforeach

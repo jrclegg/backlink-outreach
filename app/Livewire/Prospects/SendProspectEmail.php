@@ -2,19 +2,20 @@
 
 namespace App\Livewire\Prospects;
 
-use App\Models\Prospect;
+use App\Jobs\SendReviewedMessage;
+use App\Models\Conversation;
 use App\Models\EmailInbox;
-use App\Models\Campaign;
-use App\Models\CampaignRecipient;
+use App\Models\Prospect;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Livewire\Component;
 use Livewire\Attributes\Validate;
+use Livewire\Component;
 
 class SendProspectEmail extends Component
 {
     public Prospect $prospect;
+
     public int $projectId;
 
     #[Validate('required|email')]
@@ -30,11 +31,14 @@ class SendProspectEmail extends Component
     public ?int $inboxId = null;
 
     public bool $sending = false;
+
     public ?string $successMessage = null;
+
     public ?string $errorMessage = null;
 
     public function mount(Prospect $prospect)
     {
+        abort_unless($prospect->project->organization_id === Auth::user()->current_organization_id, 404);
         $this->prospect = $prospect;
         $this->projectId = $prospect->project_id;
         $this->toEmail = $prospect->contact_email ?? '';
@@ -52,59 +56,37 @@ class SendProspectEmail extends Component
             $org = Auth::user()->currentOrganization;
             $inbox = EmailInbox::find($this->inboxId);
 
-            if (!$inbox || !$org->emailInboxes->contains($inbox)) {
+            if (! $inbox || ! $org->emailInboxes->contains($inbox)) {
                 $this->errorMessage = 'Invalid inbox selected';
                 $this->sending = false;
+
                 return;
             }
 
-            // Create or get a campaign for individual outreach
-            $campaign = Campaign::firstOrCreate(
-                [
-                    'project_id' => $this->projectId,
-                    'name' => 'Individual Outreach',
-                    'status' => 'active',
-                ],
-                [
-                    'template_id' => null,
-                    'status' => 'active',
-                ]
-            );
-
-            // Create campaign recipient to track this email
-            $recipient = CampaignRecipient::updateOrCreate(
-                [
-                    'campaign_id' => $campaign->id,
-                    'prospect_id' => $this->prospect->id,
-                ],
-                [
-                    'status' => 'pending',
-                    'token' => Str::uuid(),
-                ]
-            );
-
-            // Send the email
-            Mail::mailer(config('mail.default'))->raw($this->body, function ($message) use ($inbox) {
-                $message->to($this->toEmail)
-                    ->subject($this->subject)
-                    ->from($inbox->email_address, $inbox->name ?? 'Outreach');
-            });
-
-            // Mark as sent
-            $recipient->update([
-                'status' => 'sent',
-                'sent_at' => now(),
+            abort_unless($this->prospect->project->organization_id === $org->id, 404);
+            $thread = Conversation::create([
+                'project_id' => $this->prospect->project_id, 'email_inbox_id' => $inbox->id,
+                'contact_email' => strtolower($this->toEmail), 'subject' => $this->subject,
             ]);
+            $message = $thread->messages()->create([
+                'email_inbox_id' => $inbox->id, 'direction' => 'outbound', 'status' => 'queued',
+                'from_email' => $inbox->sender_address, 'to_email' => strtolower($this->toEmail),
+                'subject' => $this->subject, 'body' => $this->body,
+                'message_id' => Str::uuid().'@'.parse_url($this->prospect->project->website_url, PHP_URL_HOST),
+                'approved_at' => now(),
+            ]);
+            $this->prospect->project->emailInboxes()->syncWithoutDetaching([$inbox->id]);
+            SendReviewedMessage::dispatch($message);
 
             $this->sending = false;
-            $this->successMessage = "Email sent to {$this->toEmail}";
+            $this->successMessage = "Reviewed email queued for {$this->toEmail}. Follow the conversation in the project inbox.";
             $this->body = '';
             $this->subject = '';
 
         } catch (\Exception $e) {
             $this->sending = false;
-            $this->errorMessage = 'Failed to send email: ' . $e->getMessage();
-            \Illuminate\Support\Facades\Log::error('Email send error', [
+            $this->errorMessage = 'Failed to send email: '.$e->getMessage();
+            Log::error('Email send error', [
                 'prospect_id' => $this->prospect->id,
                 'error' => $e->getMessage(),
             ]);

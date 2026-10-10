@@ -16,8 +16,7 @@ class ScheduleBacklinkChecks implements ShouldQueue
     public function handle(): void
     {
         // Find all backlink checks due for verification
-        $checks = BacklinkCheck::where('status', '!=', 'error')
-            ->where(function ($query) {
+        $checks = BacklinkCheck::where(function ($query) {
                 $query->whereNull('next_check_at')
                     ->orWhere('next_check_at', '<=', now());
             })

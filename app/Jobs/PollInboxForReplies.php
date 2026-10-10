@@ -3,56 +3,50 @@
 namespace App\Jobs;
 
 use App\Models\EmailInbox;
-use App\Services\ReplyMatcher;
+use App\Services\Mail\ImapGateway;
+use App\Services\Outreach\Mailbox;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 
 class PollInboxForReplies implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function __construct(public EmailInbox $inbox)
-    {}
+    public int $tries = 3;
 
-    public function handle(): void
+    public int $timeout = 300;
+
+    public function __construct(public EmailInbox $inbox) {}
+
+    public function middleware(): array
     {
-        // TODO: Implement IMAP polling with webklex/php-imap
-        // For now, this is a placeholder demonstrating the polling pattern
+        return [(new WithoutOverlapping('imap-'.$this->inbox->id))->releaseAfter(30)->expireAfter(360)];
+    }
 
+    public function backoff(): array
+    {
+        return [60, 300];
+    }
+
+    public function handle(ImapGateway $gateway, Mailbox $mailbox): void
+    {
+        $inbox = $this->inbox->fresh();
+        if (! $inbox || ! $inbox->is_active) {
+            return;
+        }
+        $startedAt = now();
         try {
-            // When implemented:
-            // 1. Connect to IMAP using the inbox credentials
-            // 2. Fetch messages since last_polled_at
-            // 3. Parse message headers (From, Subject, Message-ID, In-Reply-To)
-            // 4. Extract email body text
-            // 5. Use ReplyMatcher to match replies to campaigns
-            // 6. Store EmailReply and mark recipient as replied
-            // 7. Dispatch ClassifyEmailReply if org has LLM key
-            // 8. Update inbox->last_polled_at
-
-            // Example pseudo-code:
-            // $client = new IMAPClient([...credentials...]);
-            // $messages = $client->getMessages('since:' . $inbox->last_polled_at->toDate());
-            // foreach ($messages as $message) {
-            //     $recipient = ReplyMatcher::matchReply(
-            //         $message->getFrom(),
-            //         $message->getSubject(),
-            //         $message->getTextBody(),
-            //         $message->getMessageId(),
-            //         $message->getInReplyTo(),
-            //         $inbox->id
-            //     );
-            //     ReplyMatcher::storeReply(...);
-            //     ClassifyEmailReply::dispatchIf($org->llm_api_key, $reply);
-            // }
-
-            $this->inbox->update(['last_polled_at' => now()]);
-        } catch (\Exception $e) {
-            // Log error but don't fail the job
-            \Log::error('IMAP polling failed: ' . $e->getMessage());
+            foreach ($gateway->messages($inbox) as $message) {
+                $mailbox->ingest($inbox, $message);
+            }
+            $inbox->update(['last_polled_at' => $startedAt, 'sync_error' => null]);
+        } catch (\Throwable $e) {
+            $inbox->update(['sync_error' => 'Sync failed. Check IMAP host, folder, credentials and provider access. Your last successful sync was preserved.']);
+            throw new \RuntimeException('Inbox synchronization failed for inbox '.$inbox->id);
         }
     }
 }

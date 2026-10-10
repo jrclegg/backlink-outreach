@@ -9,9 +9,11 @@ class Organization extends Model
     protected $fillable = [
         'name',
         'slug',
-        'llm_provider',
+        'llm_provider', 'ai_model',
         'llm_api_key',
     ];
+
+    protected $hidden = ['llm_api_key'];
 
     protected $casts = [
         'llm_api_key' => 'encrypted',

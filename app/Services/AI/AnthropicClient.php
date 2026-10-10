@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\Http;
 class AnthropicClient implements AiClient
 {
     private string $apiKey;
-    private string $model = 'claude-3-5-sonnet-20241022';
+
+    private string $model = 'claude-sonnet-4-6';
 
     public function __construct(string $apiKey)
     {
@@ -31,7 +32,8 @@ class AnthropicClient implements AiClient
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
+                'x-api-key' => $this->apiKey,
+                'anthropic-version' => '2023-06-01',
                 'Content-Type' => 'application/json',
             ])->post('https://api.anthropic.com/v1/messages', [
                 'model' => $this->model,
@@ -42,7 +44,7 @@ class AnthropicClient implements AiClient
             ]);
 
             if ($response->failed()) {
-                throw new Exception('API error: ' . $response->body());
+                throw new Exception('API error: '.$response->body());
             }
 
             $data = $response->json();
@@ -79,7 +81,8 @@ class AnthropicClient implements AiClient
 
         try {
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
+                'x-api-key' => $this->apiKey,
+                'anthropic-version' => '2023-06-01',
                 'Content-Type' => 'application/json',
             ])->post('https://api.anthropic.com/v1/messages', [
                 'model' => $this->model,

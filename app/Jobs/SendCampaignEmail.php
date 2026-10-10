@@ -4,14 +4,15 @@ namespace App\Jobs;
 
 use App\Models\CampaignRecipient;
 use App\Models\Suppression;
-use App\Services\Mail\OAuthAwareMailerFactory;
+use App\Services\Mail\DynamicMailerFactory;
+use App\Services\Mail\SmtpErrorTranslator;
 use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Str;
+use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 
 class SendCampaignEmail implements ShouldQueue
@@ -19,6 +20,7 @@ class SendCampaignEmail implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $tries = 3;
+
     public $timeout = 30;
 
     public function __construct(
@@ -35,20 +37,21 @@ class SendCampaignEmail implements ShouldQueue
             ->where('email', $recipient->prospect->contact_email)
             ->exists()) {
             $recipient->update(['status' => 'suppressed']);
+
             return;
         }
 
         $campaign = $recipient->campaign;
         $step = $campaign->sequenceSteps()->where('step_number', $this->step)->first();
 
-        if (!$step) {
+        if (! $step) {
             return;
         }
 
         try {
             // Generate message ID for tracking
-            if (!$recipient->message_id) {
-                $messageId = '<' . $recipient->token . '.' . $campaign->id . '@' . parse_url($campaign->project->website_url, PHP_URL_HOST) . '>';
+            if (! $recipient->message_id) {
+                $messageId = '<'.$recipient->token.'.'.$campaign->id.'@'.parse_url($campaign->project->website_url, PHP_URL_HOST).'>';
                 $recipient->update(['message_id' => $messageId]);
             }
 
@@ -61,22 +64,30 @@ class SendCampaignEmail implements ShouldQueue
 
             // Add unsubscribe link to body (footer)
             $unsubscribeUrl = route('unsubscribe.show', ['token' => $recipient->token]);
-            $body .= "\n\n<p style=\"font-size: 12px; color: #999; margin-top: 40px;\">" .
-                "<a href=\"{$unsubscribeUrl}\" style=\"color: #999; text-decoration: none;\">Unsubscribe</a>" .
-                "</p>";
+            $body .= "\n\n<p style=\"font-size: 12px; color: #999; margin-top: 40px;\">".
+                "<a href=\"{$unsubscribeUrl}\" style=\"color: #999; text-decoration: none;\">Unsubscribe</a>".
+                '</p>';
 
             // Send email
-            $factory = app(OAuthAwareMailerFactory::class);
+            $factory = new DynamicMailerFactory;
+            $mailer = $factory->make($campaign->emailInbox);
 
-            $email = new Email();
-            $email->from($campaign->emailInbox->email_address, $campaign->emailInbox->from_name)
+            $email = new Email;
+            $email->from(new Address($campaign->emailInbox->sender_address, $campaign->emailInbox->from_name))
                 ->to($recipient->prospect->contact_email)
                 ->subject($step->subject)
                 ->html($body)
                 ->getHeaders()
                 ->addTextHeader('Message-ID', $recipient->message_id);
 
-            $factory->send($campaign->emailInbox, $email);
+            $result = $mailer->send($email, DynamicMailerFactory::envelope($campaign->emailInbox, $email));
+
+            \Log::info('Email sent successfully', [
+                'recipient' => $recipient->prospect->contact_email,
+                'campaign' => $campaign->name,
+                'step' => $this->step,
+                'message_id' => $recipient->message_id,
+            ]);
 
             // Update recipient
             $recipient->update([
@@ -93,9 +104,15 @@ class SendCampaignEmail implements ShouldQueue
                 ]);
             }
         } catch (Exception $e) {
+            $sensitiveValues = [$campaign->emailInbox->smtp_password, $campaign->emailInbox->imap_password, $step->subject, $step->body_html, $body ?? ''];
+            \Log::warning('Campaign email failed', [
+                'recipient_id' => $recipient->id,
+                'inbox_id' => $campaign->email_inbox_id,
+                'diagnostics' => SmtpErrorTranslator::diagnostics($e, $sensitiveValues),
+            ]);
             $recipient->update([
                 'status' => 'failed',
-                'error' => substr($e->getMessage(), 0, 255),
+                'error' => SmtpErrorTranslator::translate($e).' '.SmtpErrorTranslator::diagnosticSummary($e, $sensitiveValues),
             ]);
             throw $e;
         }

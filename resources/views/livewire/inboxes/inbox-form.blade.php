@@ -1,272 +1,52 @@
-<div>
-    <div class="max-w-2xl">
-        <h1 class="text-display mb-2">Connect Email Inbox</h1>
-        <p class="text-caption mb-8">Get started in seconds with one-click provider connections</p>
-
-        @if($showOAuthOptions)
-            <!-- OAuth Options Stage -->
-            <div class="space-y-6">
-                <!-- Basic Info Section -->
-                <div class="border border-border rounded-lg p-6 space-y-4">
-                    <h3 class="text-heading">Inbox Details</h3>
-
-                    <div>
-                        <label class="text-label block mb-2">Inbox Name</label>
-                        <input type="text" wire:model="name" placeholder="e.g., Main Outreach" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                        @error('name') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
-                    </div>
-
-                    <div>
-                        <label class="text-label block mb-2">From Name</label>
-                        <input type="text" wire:model="from_name" placeholder="Your Name" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                        @error('from_name') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
-                    </div>
+<div class="max-w-2xl space-y-6">
+    <header><a href="{{ route('inboxes.index') }}" wire:navigate class="text-sm text-teal-700">← Email accounts</a><h1 class="text-display mt-3">{{ $inboxId ? 'Manage email account' : 'Connect your email' }}</h1><p class="text-caption mt-2">Your email and project, together. We handle the connection settings.</p></header>
+    @if($notice)<p role="status" class="panel bg-teal-50">{{ $notice }}</p>@endif
+    @if($errors->any())<div role="alert" class="panel text-rose-700 text-sm">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif
+    @if($step === 'email')
+        <form wire:submit="identify" class="panel space-y-5">
+            <label class="block text-sm font-medium" for="connect-email">What’s your email address?</label>
+            <input id="connect-email" type="email" wire:model="email_address" autocomplete="email" class="field" placeholder="you@yourwebsite.com" required autofocus>
+            <p class="text-caption">Works with IONOS, Gmail, Yahoo and Zoho, including supported custom-domain accounts.</p>
+            <button class="btn-primary" wire:loading.attr="disabled" wire:target="identify"><span wire:loading.remove wire:target="identify">Continue</span><span wire:loading wire:target="identify">Finding your provider…</span></button>
+        </form>
+    @else
+        <form wire:submit="save" class="panel space-y-5">
+            <div class="flex items-start justify-between gap-3"><div><p class="font-medium break-all">{{ $email_address }}</p>@if($provider !== 'custom')<p class="text-caption mt-1">{{ $providers[$provider]['label'] ?? 'Email provider' }} · Connection settings ready</p>@endif</div>@if(!$inboxId)<button type="button" wire:click="changeEmail" class="text-sm text-teal-700">Change</button>@endif</div>
+            @if($provider === 'custom' && !$manualMode)
+                <div class="rounded-lg bg-zinc-50 p-4 space-y-3"><p class="text-sm">We couldn’t identify your email provider automatically. Who do you sign in with?</p>
+                    <label class="block text-sm">Email provider<select wire:model.live="provider" class="field mt-1"><option value="custom">Choose your provider</option>@foreach($providers as $key=>$value)@if($key !== 'custom')<option value="{{ $key }}">{{ $value['label'] }}</option>@endif @endforeach</select></label>
+                    <button type="button" wire:click="$set('manualMode', true)" class="text-sm text-teal-700">My provider isn’t listed</button>
                 </div>
-
-                <!-- OAuth Provider Selection -->
-                <div class="border border-border rounded-lg p-6 space-y-4">
-                    <h3 class="text-heading">Choose Email Provider</h3>
-                    <p class="text-caption text-secondary mb-4">Select your email provider for instant setup. Your credentials are never stored on our servers.</p>
-
-                    <div class="space-y-3">
-                        <!-- Gmail Button -->
-                        <button type="button" wire:click="connectWithOAuth('gmail')" class="w-full px-6 py-4 border-2 border-border rounded-lg hover:border-accent hover:bg-surface-inset transition-all text-left flex items-center gap-3">
-                            <svg class="w-6 h-6 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M20.4 6.5c.1.1.2.1.3.2v11.6c0 1.1-.9 2-2 2H5.3c-1.1 0-2-.9-2-2V6.7c0-.1.2-.2.3-.2h16.8zm-9 8.3l-6.4-5.1c-.2-.2-.3-.4-.3-.6 0-.5.4-.9.9-.9h11.6c.5 0 .9.4.9.9 0 .2-.1.4-.3.6l-6.4 5.1zm9-9.3H3.6c-.9 0-1.6.7-1.6 1.6v11.5c0 .9.7 1.6 1.6 1.6h16.8c.9 0 1.6-.7 1.6-1.6V6.5c0-.9-.7-1.6-1.6-1.6zm-8.5 6.8l6.4-5.1c.2-.2.3-.4.3-.6 0-.5-.4-.9-.9-.9H5.3c-.5 0-.9.4-.9.9 0 .2.1.4.3.6l6.4 5.1z"/>
-                            </svg>
-                            <div class="flex-1">
-                                <div class="font-semibold">Connect Gmail</div>
-                                <div class="text-caption text-secondary">One-click OAuth connection</div>
-                            </div>
-                            <svg class="w-5 h-5 text-secondary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
-
-                        <!-- Outlook Button -->
-                        <button type="button" wire:click="connectWithOAuth('outlook')" class="w-full px-6 py-4 border-2 border-border rounded-lg hover:border-accent hover:bg-surface-inset transition-all text-left flex items-center gap-3">
-                            <svg class="w-6 h-6 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M10.5 1.5H3c-.825 0-1.5.675-1.5 1.5v18c0 .825.675 1.5 1.5 1.5h18c.825 0 1.5-.675 1.5-1.5V10.5M10.5 1.5v9m0 0H1.5M10.5 10.5l10.5-9"/>
-                            </svg>
-                            <div class="flex-1">
-                                <div class="font-semibold">Connect Outlook</div>
-                                <div class="text-caption text-secondary">One-click OAuth connection</div>
-                            </div>
-                            <svg class="w-5 h-5 text-secondary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    <!-- Manual Entry Toggle -->
-                    <div class="mt-6 pt-6 border-t border-border">
-                        <button type="button" wire:click="toggleManualForm" class="text-caption text-secondary hover:text-body transition-colors flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m0 0h6" />
-                            </svg>
-                            <span>Or manually configure SMTP/IMAP</span>
-                        </button>
-                    </div>
+            @else
+                <details wire:ignore.self><summary class="text-sm cursor-pointer text-teal-700">Different provider?</summary><label class="block text-sm mt-3">Email provider<select aria-label="Email provider" wire:model.live="provider" class="field mt-1">@foreach($providers as $key=>$value)<option value="{{ $key }}">{{ $value['label'] }}</option>@endforeach</select></label></details>
+            @endif
+            @if($provider !== 'custom' || $manualMode)
+                <div class="space-y-2"><label for="connect-password" class="block text-sm font-medium">{{ $providerHelp['label'] }}</label>
+                    <input id="connect-password" type="password" wire:model="password" autocomplete="new-password" class="field" placeholder="{{ $inboxId ? 'Leave blank to keep your saved password' : '' }}" @required(!$inboxId)>
+                    <p class="text-caption">{{ $providerHelp['instruction'] }}</p>
+                    @if($providerHelp['url'])<a href="{{ $providerHelp['url'] }}" target="_blank" rel="noopener noreferrer" class="inline-block text-sm text-teal-700 underline">{{ in_array($provider,['gmail','yahoo']) ? 'Create an app password' : 'Help with Zoho access' }} ↗</a>@endif
                 </div>
-            </div>
-        @endif
-
-        @if($showManualForm)
-            <form wire:submit="save" class="space-y-8">
-                <!-- Basic Info Section -->
-                <div class="border border-border rounded-lg p-6 space-y-4">
-                    <h3 class="text-heading">Inbox Details</h3>
-
-                    <div>
-                        <label class="text-label block mb-2">Inbox Name</label>
-                        <input type="text" wire:model="name" placeholder="e.g., Main Outreach" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                        @error('name') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
+                <fieldset class="space-y-2"><legend class="text-sm font-medium mb-2">Which projects should use this email?</legend>@forelse($projects as $project)<label class="flex gap-2 text-sm"><input type="checkbox" wire:model.live="projectIds" value="{{ $project->id }}">{{ $project->name }}</label>@empty<p class="text-caption">You can assign a project later. New messages will appear in Unassigned mail.</p>@endforelse</fieldset>
+                @if(count($projectIds) > 1)<label class="block text-sm">Put new conversations in<select wire:model="defaultProjectId" class="field mt-1"><option value="">Unassigned mail — I’ll choose later</option>@foreach($projects->whereIn('id',$projectIds) as $project)<option value="{{ $project->id }}">{{ $project->name }}</option>@endforeach</select></label>@endif
+                <label class="block text-sm">Your name on outgoing emails<input wire:model="from_name" autocomplete="name" class="field mt-1" required></label>
+                <label class="block text-sm">Send as address (optional)<input type="email" wire:model="from_address" class="field mt-1" placeholder="{{ $email_address }}"><span class="text-caption block mt-1">Use an alias your provider allows you to send from. Leave blank to send from {{ $email_address }}. Your mailbox login stays the same.</span></label>
+                @if($provider === 'yahoo')<p class="text-caption">Set up and verify your send-only address in Yahoo first. Checking the connection verifies your login; it does not verify that Yahoo will deliver mail from the alias.</p>@endif
+                @if($manualMode)<p class="text-caption">This provider needs manual settings. Only enter the settings supplied by your email provider.</p>@endif
+                <details wire:ignore.self class="border-t border-border pt-4" @if($manualMode) open @endif wire:key="advanced-{{ (int) $manualMode }}"><summary class="text-sm cursor-pointer text-text-muted">Advanced options (optional)</summary>
+                    <div class="space-y-4 mt-4"><label class="block text-sm">Account label<input wire:model="name" class="field mt-1"></label>
+                        <label class="flex items-center gap-2 text-sm"><input type="checkbox" wire:model.live="manualMode">Use custom server settings</label>
+                        @if($manualMode)<div class="grid md:grid-cols-2 gap-4">
+                            @foreach(['smtp_host'=>'SMTP host','imap_host'=>'IMAP host','smtp_port'=>'SMTP port','imap_port'=>'IMAP port'] as $field=>$label)<label class="text-sm">{{ $label }}<input wire:model="{{ $field }}" class="field mt-1"></label>@endforeach
+                            <label class="text-sm">SMTP encryption<select wire:model="smtp_encryption" class="field mt-1"><option value="tls">STARTTLS (587)</option><option value="ssl">TLS (465)</option></select></label><label class="text-sm">IMAP encryption<select wire:model="imap_encryption" class="field mt-1"><option value="ssl">TLS (993)</option><option value="tls">STARTTLS (143)</option></select></label>
+                        </div>@endif
+                        <div class="grid md:grid-cols-2 gap-4">@foreach(['smtp_username'=>'Sending username (defaults to email)','imap_username'=>'Receiving username (defaults to email)','imap_folder'=>'Incoming folder'] as $field=>$label)<label class="text-sm">{{ $label }}<input wire:model="{{ $field }}" class="field mt-1"></label>@endforeach
+                        <label class="text-sm">Separate receiving password (optional)<input type="password" wire:model="imap_password" autocomplete="new-password" class="field mt-1"></label><label class="text-sm">Maximum sends per hour<input type="number" wire:model="max_sends_per_hour" min="1" max="200" class="field mt-1"></label><label class="flex items-center gap-2 text-sm"><input type="checkbox" wire:model="is_active">Account active</label></div>
+                        @if($inboxId)<button type="button" wire:click="testConnection" wire:loading.attr="disabled" class="btn-secondary">Check connection</button>@endif
                     </div>
-
-                    <div>
-                        <label class="text-label block mb-2">Email Address</label>
-                        <input type="email" wire:model="email_address" placeholder="hello@example.com" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                        @error('email_address') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
-                    </div>
-
-                    <div>
-                        <label class="text-label block mb-2">From Name</label>
-                        <input type="text" wire:model="from_name" placeholder="Your Name" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                        @error('from_name') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
-                    </div>
-                </div>
-
-                <!-- SMTP Section (Stage 1) -->
-                <div class="border border-border rounded-lg p-6 space-y-4">
-                    <h3 class="text-heading">SMTP Configuration (Outgoing Mail)</h3>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-label block mb-2">Host</label>
-                            <input type="text" wire:model="smtp_host" placeholder="smtp.gmail.com" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                            @error('smtp_host') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
-                        </div>
-
-                        <div>
-                            <label class="text-label block mb-2">Port</label>
-                            <input type="number" wire:model="smtp_port" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                            @error('smtp_port') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="text-label block mb-2">Username</label>
-                        <input type="text" wire:model="smtp_username" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                        @error('smtp_username') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
-                    </div>
-
-                    <div>
-                        <label class="text-label block mb-2">Password</label>
-                        <input type="password" wire:model="smtp_password" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                        @error('smtp_password') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
-                    </div>
-
-                    <div>
-                        <label class="text-label block mb-2">Encryption</label>
-                        <select wire:model="smtp_encryption" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent">
-                            <option value="tls">TLS (Port 587)</option>
-                            <option value="ssl">SSL (Port 465)</option>
-                        </select>
-                    </div>
-
-                    <!-- Test SMTP Button -->
-                    <button type="button" wire:click="testSmtp" :disabled="testing_smtp" class="w-full px-4 py-2 bg-accent text-white rounded-lg text-body hover:opacity-90 transition-opacity disabled:opacity-50">
-                        @if($testing_smtp)
-                            <span>Testing connection…</span>
-                        @else
-                            Test SMTP Connection
-                        @endif
-                    </button>
-
-                    <!-- SMTP Status -->
-                    @if($smtp_tested)
-                        <div class="px-4 py-3 bg-success-subtle text-success rounded-lg text-caption">
-                            ✓ SMTP connection successful
-                        </div>
-                    @elseif($smtp_error)
-                        <div class="px-4 py-3 bg-danger-subtle text-danger rounded-lg text-caption">
-                            {{ $smtp_error }}
-                        </div>
-                    @endif
-                </div>
-
-                <!-- IMAP Section (Stage 2 - only visible after SMTP success) -->
-                @if($smtp_tested)
-                    <div class="border border-border rounded-lg p-6 space-y-4 animate-in fade-in">
-                        <h3 class="text-heading">IMAP Configuration (Incoming Mail)</h3>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-label block mb-2">Host</label>
-                                <input type="text" wire:model="imap_host" placeholder="imap.gmail.com" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                                @error('imap_host') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
-                            </div>
-
-                            <div>
-                                <label class="text-label block mb-2">Port</label>
-                                <input type="number" wire:model="imap_port" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                                @error('imap_port') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="text-label block mb-2">Username</label>
-                            <input type="text" wire:model="imap_username" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                            @error('imap_username') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
-                        </div>
-
-                        <div>
-                            <label class="text-label block mb-2">Password</label>
-                            <input type="password" wire:model="imap_password" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                            @error('imap_password') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
-                        </div>
-
-                        <div>
-                            <label class="text-label block mb-2">Encryption</label>
-                            <select wire:model="imap_encryption" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent">
-                                <option value="ssl">SSL (Port 993)</option>
-                                <option value="tls">TLS (Port 143)</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="text-label block mb-2">Folder</label>
-                            <input type="text" wire:model="imap_folder" placeholder="INBOX" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                        </div>
-
-                        <!-- Test IMAP Button -->
-                        <button type="button" wire:click="testImap" :disabled="testing_imap" class="w-full px-4 py-2 bg-accent text-white rounded-lg text-body hover:opacity-90 transition-opacity disabled:opacity-50">
-                            @if($testing_imap)
-                                <span>Testing connection…</span>
-                            @else
-                                Test IMAP Connection
-                            @endif
-                        </button>
-
-                        <!-- IMAP Status -->
-                        @if($imap_tested)
-                            <div class="px-4 py-3 bg-success-subtle text-success rounded-lg text-caption">
-                                ✓ IMAP connection successful
-                            </div>
-                        @elseif($imap_error)
-                            <div class="px-4 py-3 bg-danger-subtle text-danger rounded-lg text-caption">
-                                {{ $imap_error }}
-                            </div>
-                        @endif
-                    </div>
-
-                    <!-- Send Test Email Section (Stage 3) -->
-                    @if($imap_tested)
-                        <div class="border border-border rounded-lg p-6 space-y-4 animate-in fade-in">
-                            <h3 class="text-heading">Send Test Email</h3>
-                            <p class="text-caption">Send a test email to verify everything is working correctly.</p>
-
-                            <button type="button" wire:click="sendTestEmail" :disabled="testing_email" class="w-full px-4 py-2 bg-accent text-white rounded-lg text-body hover:opacity-90 transition-opacity disabled:opacity-50">
-                                @if($testing_email)
-                                    <span>Sending…</span>
-                                @else
-                                    Send Test Email
-                                @endif
-                            </button>
-
-                            <!-- Email Status -->
-                            @if($email_sent)
-                                <div class="px-4 py-3 bg-success-subtle text-success rounded-lg text-caption">
-                                    ✓ Test email sent successfully! Check your inbox.
-                                </div>
-                            @elseif($email_error)
-                                <div class="px-4 py-3 bg-danger-subtle text-danger rounded-lg text-caption">
-                                    {{ $email_error }}
-                                </div>
-                            @endif
-                        </div>
-
-                        <!-- Save Button (only available after test email sent) -->
-                        @if($email_sent)
-                            <div class="flex gap-4">
-                                <button type="submit" class="flex-1 px-4 py-2 bg-accent text-white rounded-lg text-body hover:opacity-90 transition-opacity">
-                                    Save Inbox
-                                </button>
-                                <a href="{{ route('inboxes.index') }}" wire:navigate class="flex-1 px-4 py-2 border border-border rounded-lg text-body hover:bg-surface-inset transition-colors text-center">
-                                    Cancel
-                                </a>
-                            </div>
-                        @endif
-                    @endif
-                @endif
-
-                <!-- Back to OAuth Options Button -->
-                <div class="flex gap-4">
-                    <button type="button" wire:click="toggleManualForm" class="flex-1 px-4 py-2 border border-border rounded-lg text-body hover:bg-surface-inset transition-colors">
-                        Back to OAuth Options
-                    </button>
-                </div>
-            </form>
-        @endif
-    </div>
+                </details>
+                <button type="submit" wire:loading.attr="disabled" class="btn-primary"><span wire:loading.remove wire:target="save">{{ $inboxId ? 'Save changes' : 'Connect account' }}</span><span wire:loading wire:target="save">Checking sending and receiving…</span></button>
+                <p class="text-caption">{{ $inboxId ? 'Changes to your connection are tested before saving.' : 'We’ll check sending and receiving, then start syncing your inbox.' }} No test email is sent.</p>
+            @endif
+        </form>
+    @endif
 </div>

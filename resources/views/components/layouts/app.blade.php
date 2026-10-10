@@ -10,7 +10,7 @@
 <body class="bg-surface text-text-primary">
     <div class="flex h-screen">
         <!-- Left Navigation -->
-        <aside class="w-64 border-r border-border bg-surface flex flex-col">
+        <aside class="hidden md:flex w-48 lg:w-64 shrink-0 border-r border-border bg-surface flex-col">
             <!-- Logo / Org -->
             <div class="px-8 py-8 border-b border-border">
                 <div class="flex items-center justify-between">
@@ -30,6 +30,8 @@
                     <a href="{{ route('projects.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Projects</a>
                     <a href="{{ route('inboxes.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Email Inboxes</a>
 
+                    <a href="{{ route('mail.unassigned') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset">Unassigned mail</a>
+                    <a href="{{ route('ai.settings') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset">AI settings</a>
                     <!-- Prospects Section -->
                     <div class="mt-6">
                         <p class="px-4 py-2 text-caption font-medium text-text-muted">Prospects</p>
@@ -74,8 +76,16 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto">
-            <div class="max-w-6xl mx-auto px-8 py-8">
+        <main class="flex-1 min-w-0 overflow-y-auto">
+            @auth
+            <nav class="md:hidden flex flex-wrap gap-4 p-4 border-b border-border text-sm" aria-label="Mobile navigation">
+                <a href="{{ route('dashboard') }}" wire:navigate>Dashboard</a>
+                <a href="{{ route('projects.index') }}" wire:navigate>Projects</a>
+                <a href="{{ route('inboxes.index') }}" wire:navigate>Accounts</a>
+                <a href="{{ route('mail.unassigned') }}" wire:navigate>Unassigned mail</a>
+            </nav>
+            @endauth
+            <div class="max-w-7xl mx-auto px-4 lg:px-8 py-8">
                 <!-- Page Header -->
                 @if(isset($slot))
                     {{ $slot }}

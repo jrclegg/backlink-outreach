@@ -2,231 +2,266 @@
 
 namespace App\Livewire\Inboxes;
 
+use App\Jobs\PollInboxForReplies;
+use App\Models\Conversation;
 use App\Models\EmailInbox;
-use App\Services\Mail\DynamicMailerFactory;
-use App\Services\Mail\SmtpErrorTranslator;
-use Exception;
+use App\Services\Mail\MailConnectionVerifier;
+use App\Services\Mail\MailProviderDetector;
+use App\Services\Mail\ProviderSettings;
 use Illuminate\Support\Facades\Auth;
-use Livewire\Attributes\Validate;
+use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
-use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
-use Symfony\Component\Mime\Email;
 
 class InboxForm extends Component
 {
-    // OAuth flow state
-    public bool $showOAuthOptions = true;
-    public bool $showManualForm = false;
+    #[Locked]
+    public ?int $inboxId = null;
 
-    #[Validate('required|string')]
+    #[Locked]
+    public string $step = 'email';
+
+    #[Locked]
+    public string $identifiedEmail = '';
+
+    public bool $manualMode = false;
+
+    public string $provider = 'custom';
+
     public string $name = '';
 
-    #[Validate('required|email')]
     public string $email_address = '';
 
-    #[Validate('required|string')]
     public string $from_name = '';
 
-    // SMTP
-    #[Validate('required|string')]
+    public string $from_address = '';
+
+    public string $password = '';
+
     public string $smtp_host = '';
 
-    #[Validate('required|integer')]
     public int $smtp_port = 587;
 
-    #[Validate('required|string')]
-    public string $smtp_username = '';
-
-    #[Validate('required|string')]
-    public string $smtp_password = '';
-
-    #[Validate('required|in:tls,ssl')]
     public string $smtp_encryption = 'tls';
 
-    // IMAP
-    #[Validate('required|string')]
+    public string $smtp_username = '';
+
     public string $imap_host = '';
 
-    #[Validate('required|integer')]
     public int $imap_port = 993;
 
-    #[Validate('required|string')]
+    public string $imap_encryption = 'ssl';
+
     public string $imap_username = '';
 
-    #[Validate('required|string')]
     public string $imap_password = '';
-
-    #[Validate('required|in:tls,ssl')]
-    public string $imap_encryption = 'ssl';
 
     public string $imap_folder = 'INBOX';
 
+    public array $projectIds = [];
+
+    public ?int $defaultProjectId = null;
+
     public int $max_sends_per_hour = 20;
 
-    // UI State
-    public bool $showImapStage = false;
-    public bool $testing_smtp = false;
-    public bool $smtp_tested = false;
-    public string $smtp_error = '';
-    public bool $testing_imap = false;
-    public bool $imap_tested = false;
-    public string $imap_error = '';
-    public bool $testing_email = false;
-    public bool $email_sent = false;
-    public string $email_error = '';
+    public bool $is_active = true;
 
-    public function testSmtp()
+    public string $notice = '';
+
+    public function mount(?int $id = null): void
     {
-        $this->validate(['smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_encryption']);
-
-        $this->testing_smtp = true;
-        $this->smtp_error = '';
-
-        try {
-            $factory = new DynamicMailerFactory();
-
-            $inbox = new EmailInbox([
-                'smtp_host' => $this->smtp_host,
-                'smtp_port' => $this->smtp_port,
-                'smtp_username' => $this->smtp_username,
-                'smtp_password' => $this->smtp_password,
-                'smtp_encryption' => $this->smtp_encryption,
-            ]);
-
-            $mailer = $factory->make($inbox);
-
-            // Test by sending a test email to ourselves
-            $testEmail = new Email();
-            $testEmail->from($this->email_address)
-                ->to($this->email_address)
-                ->subject('SMTP Connection Test')
-                ->text('If you received this, your SMTP connection is working.');
-
-            // Don't actually send in test mode, just verify connection
-            $mailer->send($testEmail);
-
-            $this->smtp_tested = true;
-            $this->showImapStage = true;
-        } catch (Exception $e) {
-            $this->smtp_error = SmtpErrorTranslator::translate($e);
-            $this->smtp_tested = false;
-            $this->showImapStage = false;
-        } finally {
-            $this->testing_smtp = false;
-        }
-    }
-
-    public function testImap()
-    {
-        $this->validate(['imap_host', 'imap_port', 'imap_username', 'imap_password', 'imap_encryption']);
-
-        $this->testing_imap = true;
-        $this->imap_error = '';
-
-        try {
-            // For now, a simplified test - proper IMAP testing requires webklex/php-imap
-            // This will be validated when Step 13 (IMAP polling) is implemented
-            $this->imap_tested = true;
-        } catch (Exception $e) {
-            $this->imap_error = SmtpErrorTranslator::translate($e);
-            $this->imap_tested = false;
-        } finally {
-            $this->testing_imap = false;
-        }
-    }
-
-    public function sendTestEmail()
-    {
-        if (!$this->smtp_tested || !$this->imap_tested) {
-            $this->email_error = 'Please test both SMTP and IMAP connections first.';
+        $this->from_name = Auth::user()->name;
+        if (! $id) {
             return;
         }
+        $inbox = Auth::user()->currentOrganization->emailInboxes()->findOrFail($id);
+        $this->inboxId = $id;
+        foreach (['provider', 'name', 'email_address', 'from_name', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_username', 'imap_host', 'imap_port', 'imap_encryption', 'imap_username', 'imap_folder', 'max_sends_per_hour'] as $field) {
+            $this->$field = $inbox->$field;
+        }
+        $this->from_address = $inbox->from_address ?? '';
+        $this->is_active = (bool) $inbox->is_active;
+        $this->projectIds = $inbox->projects()->pluck('projects.id')->toArray();
+        $this->defaultProjectId = $inbox->default_project_id;
+        $this->step = 'credentials';
+        $this->identifiedEmail = strtolower($inbox->email_address);
+        $preset = ProviderSettings::all()[$this->provider] ?? null;
+        $this->manualMode = ! $preset || $this->provider === 'custom' || $preset['smtp'] !== $inbox->smtp_host || $preset['imap'] !== $inbox->imap_host || $inbox->smtp_port !== 587 || $inbox->smtp_encryption !== 'tls' || $inbox->imap_port !== 993 || $inbox->imap_encryption !== 'ssl';
+    }
 
-        $this->testing_email = true;
-        $this->email_error = '';
+    public function identify(): void
+    {
+        $this->email_address = strtolower(trim($this->email_address));
+        $this->validate(['email_address' => 'required|email|max:255']);
+        $this->resetValidation();
+        $this->password = '';
+        $this->imap_password = '';
+        $this->provider = app(MailProviderDetector::class)->detect($this->email_address) ?? 'custom';
+        $this->identifiedEmail = $this->email_address;
+        $this->manualMode = false;
+        $this->updatedProvider();
+        $this->manualMode = false;
+        $this->step = 'credentials';
+        $this->name = $this->email_address;
+        $this->smtp_username = $this->email_address;
+        $this->imap_username = $this->email_address;
+        $projects = Auth::user()->currentOrganization->projects;
+        $domain = substr(strrchr($this->email_address, '@'), 1);
+        $matches = $projects->filter(fn ($p) => preg_replace('/^www\./', '', strtolower(parse_url($p->website_url, PHP_URL_HOST) ?? '')) === $domain);
+        $project = $matches->count() === 1 ? $matches->first() : ($projects->count() === 1 ? $projects->first() : null);
+        $this->projectIds = $project ? [$project->id] : [];
+        $this->defaultProjectId = $project?->id;
+    }
 
-        try {
-            $factory = new DynamicMailerFactory();
-            $inbox = new EmailInbox([
-                'smtp_host' => $this->smtp_host,
-                'smtp_port' => $this->smtp_port,
-                'smtp_username' => $this->smtp_username,
-                'smtp_password' => $this->smtp_password,
-                'smtp_encryption' => $this->smtp_encryption,
-            ]);
+    public function updatedEmailAddress(): void
+    {
+        if ($this->inboxId) {
+            return;
+        }
+        $this->step = 'email';
+        $this->identifiedEmail = '';
+        $this->password = '';
+        $this->imap_password = '';
+    }
 
-            $mailer = $factory->make($inbox);
-            $email = new Email();
-            $email->from($this->email_address)
-                ->to($this->email_address)
-                ->subject('Test Email from Backlinks')
-                ->text('Your email connection is working correctly.');
+    public function changeEmail(): void
+    {
+        if ($this->inboxId) {
+            return;
+        }
+        $this->updatedEmailAddress();
+        $this->resetValidation();
+    }
 
-            $mailer->send($email);
-            $this->email_sent = true;
-        } catch (Exception $e) {
-            $this->email_error = SmtpErrorTranslator::translate($e);
-            $this->email_sent = false;
-        } finally {
-            $this->testing_email = false;
+    public function updatedProjectIds(): void
+    {
+        if (count($this->projectIds) === 1) {
+            $this->defaultProjectId = (int) $this->projectIds[0];
+        } elseif (! in_array($this->defaultProjectId, $this->projectIds)) {
+            $this->defaultProjectId = null;
         }
     }
 
-    public function save()
+    public function updatedProvider(): void
     {
-        if (!$this->email_sent) {
-            $this->email_error = 'Please send a test email before saving.';
-            return;
+        $this->resetValidation();
+        $config = ProviderSettings::all()[$this->provider] ?? ProviderSettings::all()['custom'];
+        $this->manualMode = $this->provider === 'custom';
+        $this->smtp_host = $config['smtp'];
+        $this->imap_host = $config['imap'];
+        $this->smtp_port = 587;
+        $this->smtp_encryption = 'tls';
+        $this->imap_port = 993;
+        $this->imap_encryption = 'ssl';
+    }
+
+    private function values(): array
+    {
+        if ($this->step !== 'credentials' || strtolower(trim($this->email_address)) !== $this->identifiedEmail) {
+            throw ValidationException::withMessages(['email_address' => 'Enter your email and continue before connecting.']);
         }
-
-        $this->validate();
-
+        if ($this->provider === 'custom' && ! $this->manualMode) {
+            throw ValidationException::withMessages(['provider' => 'Choose who provides your email so we can set it up for you.']);
+        }
+        if (! $this->manualMode) {
+            $preset = ProviderSettings::all()[$this->provider] ?? null;
+            if (! $preset) {
+                throw ValidationException::withMessages(['provider' => 'Choose an email provider.']);
+            }
+            $this->smtp_host = $preset['smtp'];
+            $this->imap_host = $preset['imap'];
+            $this->smtp_port = 587;
+            $this->smtp_encryption = 'tls';
+            $this->imap_port = 993;
+            $this->imap_encryption = 'ssl';
+        }
+        $this->from_address = strtolower(trim($this->from_address));
+        $this->name = trim($this->name) ?: $this->email_address;
+        $this->from_name = trim($this->from_name) ?: Auth::user()->name;
+        $this->validate([
+            'provider' => 'required|in:'.implode(',', array_keys(ProviderSettings::all())),
+            'name' => 'required|string|max:255', 'email_address' => 'required|email|max:255', 'from_name' => 'required|string|max:255',
+            'from_address' => 'nullable|email|max:255',
+            'password' => ($this->inboxId ? 'nullable' : 'required').'|string|max:1000',
+            'smtp_host' => 'required|regex:/^[a-zA-Z0-9.-]+$/|max:255', 'smtp_port' => 'required|integer|in:465,587',
+            'smtp_encryption' => 'required|in:ssl,tls', 'smtp_username' => 'nullable|string|max:255',
+            'imap_host' => 'required|regex:/^[a-zA-Z0-9.-]+$/|max:255', 'imap_port' => 'required|integer|in:993,143',
+            'imap_encryption' => 'required|in:ssl,tls', 'imap_username' => 'nullable|string|max:255', 'imap_password' => 'nullable|string|max:1000',
+            'imap_folder' => 'required|string|max:255', 'max_sends_per_hour' => 'required|integer|min:1|max:200',
+            'projectIds' => 'array', 'projectIds.*' => 'integer', 'defaultProjectId' => 'nullable|integer',
+        ]);
         $org = Auth::user()->currentOrganization;
+        $owned = $org->projects()->whereIn('id', $this->projectIds)->pluck('id')->toArray();
+        abort_unless(count(array_unique($this->projectIds)) === count($owned), 403);
+        if ($this->defaultProjectId && ! in_array($this->defaultProjectId, $owned)) {
+            throw ValidationException::withMessages(['defaultProjectId' => 'Choose one of the selected projects.']);
+        }
+        $existing = $this->inboxId ? $org->emailInboxes()->findOrFail($this->inboxId) : null;
+        if ($existing && strtolower($existing->email_address) !== strtolower($this->email_address)) {
+            throw ValidationException::withMessages(['email_address' => 'Connect a separate account to use a different email address.']);
+        }
+        if ($org->emailInboxes()->whereRaw('lower(email_address) = ?', [strtolower($this->email_address)])->when($this->inboxId, fn ($q) => $q->where('id', '!=', $this->inboxId))->exists()) {
+            throw ValidationException::withMessages(['email_address' => 'This email account is already connected. Edit it from Email accounts.']);
+        }
 
-        EmailInbox::create([
-            'organization_id' => $org->id,
-            'name' => $this->name,
-            'email_address' => $this->email_address,
-            'from_name' => $this->from_name,
-            'smtp_host' => $this->smtp_host,
-            'smtp_port' => $this->smtp_port,
-            'smtp_username' => $this->smtp_username,
-            'smtp_password' => $this->smtp_password,
-            'smtp_encryption' => $this->smtp_encryption,
-            'imap_host' => $this->imap_host,
-            'imap_port' => $this->imap_port,
-            'imap_username' => $this->imap_username,
-            'imap_password' => $this->imap_password,
-            'imap_encryption' => $this->imap_encryption,
-            'imap_folder' => $this->imap_folder,
-            'max_sends_per_hour' => $this->max_sends_per_hour,
-            'is_active' => true,
-        ]);
-
-        $this->redirect(route('inboxes.index'));
+        return [
+            'from_address' => $this->from_address ?: null,
+            'provider' => $this->provider, 'name' => $this->name, 'email_address' => strtolower($this->email_address), 'from_name' => $this->from_name,
+            'smtp_host' => $this->smtp_host, 'smtp_port' => $this->smtp_port, 'smtp_encryption' => $this->smtp_encryption,
+            'smtp_username' => $this->smtp_username ?: $this->email_address, 'smtp_password' => $this->password ?: $existing?->smtp_password,
+            'imap_host' => $this->imap_host, 'imap_port' => $this->imap_port, 'imap_encryption' => $this->imap_encryption,
+            'imap_username' => $this->imap_username ?: $this->email_address, 'imap_password' => $this->imap_password ?: ($this->password ?: $existing?->imap_password),
+            'imap_folder' => $this->imap_folder, 'max_sends_per_hour' => $this->max_sends_per_hour, 'is_active' => $this->is_active,
+            'default_project_id' => $this->defaultProjectId,
+        ];
     }
 
-    public function connectWithOAuth(string $provider)
+    public function testConnection(): void
     {
-        $this->validate(['name', 'from_name']);
-
-        $url = route('inboxes.connect', $provider, [
-            'name' => $this->name,
-            'from_name' => $this->from_name,
-        ]);
-
-        return $this->redirect($url, navigate: false);
+        $values = $this->values();
+        app(MailConnectionVerifier::class)->verify(new EmailInbox($values));
+        $this->notice = 'Sending and receiving both work. No email was sent.';
     }
 
-    public function toggleManualForm()
+    public function save(): void
     {
-        $this->showManualForm = !$this->showManualForm;
-        $this->showOAuthOptions = !$this->showOAuthOptions;
+        $values = $this->values();
+        $org = Auth::user()->currentOrganization;
+        $existing = $this->inboxId ? $org->emailInboxes()->findOrFail($this->inboxId) : null;
+        $connectionFields = ['email_address', 'smtp_host', 'smtp_port', 'smtp_encryption', 'smtp_username', 'smtp_password', 'imap_host', 'imap_port', 'imap_encryption', 'imap_username', 'imap_password', 'imap_folder'];
+        $changed = ! $existing;
+        foreach ($connectionFields as $field) {
+            if ($existing && (string) $existing->$field !== (string) $values[$field]) {
+                $changed = true;
+            }
+        }
+        if ($changed) {
+            app(MailConnectionVerifier::class)->verify(new EmailInbox($values));
+            $values['sync_error'] = null;
+        }
+        $inbox = \DB::transaction(function () use ($values, $org) {
+            $inbox = $this->inboxId ? $org->emailInboxes()->findOrFail($this->inboxId) : $org->emailInboxes()->make();
+            // Changing account identity must not merge two mailboxes' threads or message IDs.
+            if ($inbox->exists && strtolower($inbox->email_address) !== strtolower($values['email_address']) && Conversation::where('email_inbox_id', $inbox->id)->exists()) {
+                throw ValidationException::withMessages(['email_address' => 'Add a separate account to change the email address of a mailbox with conversations.']);
+            }
+            $inbox->fill($values);
+            $inbox->save();
+            $inbox->projects()->sync($this->projectIds);
+
+            return $inbox;
+        });
+        $this->password = '';
+        $this->imap_password = '';
+        if ($changed && $inbox->is_active) {
+            PollInboxForReplies::dispatch($inbox);
+        }
+        session()->flash('sync', $changed ? 'Account connected. Sending and receiving verified; your first inbox sync is queued.' : 'Account updated.');
+        $this->redirectRoute('inboxes.index');
     }
 
     public function render()
     {
-        return view('livewire.inboxes.inbox-form')
-            ->layout('components.layouts.app', ['title' => 'Add Email Inbox']);
+        return view('livewire.inboxes.inbox-form', ['providers' => ProviderSettings::all(), 'projects' => Auth::user()->currentOrganization->projects, 'providerHelp' => ProviderSettings::help($this->provider)])->layout('components.layouts.app', ['title' => $this->inboxId ? 'Edit email account' : 'Connect email account']);
     }
 }
