@@ -19,13 +19,13 @@ class PollInboxForReplies implements ShouldQueue
 
     public int $tries = 3;
 
-    public int $timeout = 300;
+    public int $timeout = 600;
 
     public function __construct(public EmailInbox $inbox) {}
 
     public function middleware(): array
     {
-        return [(new WithoutOverlapping('imap-'.$this->inbox->id))->releaseAfter(30)->expireAfter(360)];
+        return [(new WithoutOverlapping('imap-'.$this->inbox->id))->releaseAfter(30)->expireAfter(660)];
     }
 
     public function backoff(): array
