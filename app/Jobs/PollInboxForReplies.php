@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\EmailInbox;
 use App\Services\Mail\ImapGateway;
 use App\Services\Outreach\Mailbox;
+use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -40,8 +41,14 @@ class PollInboxForReplies implements ShouldQueue
         }
         $startedAt = now();
         try {
+            $count = 0;
             foreach ($gateway->messages($inbox) as $message) {
                 $mailbox->ingest($inbox, $message);
+                // Checkpoint so a slow first sync that hits the job timeout resumes instead of restarting.
+                $receivedAt = Carbon::parse($message['received_at']);
+                if (++$count % 10 === 0 && $receivedAt->lt($startedAt) && (! $inbox->last_polled_at || $receivedAt->gt($inbox->last_polled_at))) {
+                    $inbox->update(['last_polled_at' => $receivedAt]);
+                }
             }
             $inbox->update(['last_polled_at' => $startedAt, 'sync_error' => null]);
         } catch (\Throwable $e) {
