@@ -99,7 +99,7 @@ class EmployerOutreachTest extends TestCase
         $ai = Mockery::mock(Assistant::class);
         $ai->shouldReceive('json')->once()->andReturn($this->qualityReview(['deadline' => now()->toDateString()]));
         (new AutoSendEmployerEmail($item))->handle($ai, $pages, new EmployerOutreach);
-        $this->assertStringContainsString('less than two days', $item->fresh()->auto_review_reason);
+        $this->assertStringContainsString('under 21 days', $item->fresh()->auto_review_reason);
         Queue::assertNotPushed(SendReviewedMessage::class);
     }
 
@@ -449,7 +449,7 @@ class EmployerOutreachTest extends TestCase
     public function test_live_feed_import_rejects_stale_and_expired_jobs_and_deduplicates(): void
     {
         config(['outreach.academic_jobs_feed' => 'https://academicecologyjobs.com/feed.json']);
-        $item = ['name' => 'Ecology postdoc', 'published' => now()->toIso8601String(), 'attributedTo' => ['name' => 'University', 'location' => 'UK'], 'inReplyTo' => ['href' => 'https://www.jobs.ac.uk/job/example', 'name' => 'View on Jobs.ac.uk'], 'expiresAt' => null];
+        $item = ['id' => 'https://academicecologyjobs.com/jobs/ecology-postdoc', 'name' => 'Ecology postdoc', 'published' => now()->toIso8601String(), 'attributedTo' => ['name' => 'University', 'location' => 'UK'], 'inReplyTo' => ['href' => 'https://www.jobs.ac.uk/job/example', 'name' => 'View on Jobs.ac.uk'], 'expiresAt' => null];
         $old = $item;
         $old['published'] = now()->subDays(90)->toIso8601String();
         $old['inReplyTo']['href'] .= '-old';
@@ -463,6 +463,7 @@ class EmployerOutreachTest extends TestCase
         $this->assertSame(1, $importer->import($this->campaign));
         $this->assertSame(0, $importer->import($this->campaign));
         $this->assertSame(100, $this->campaign->leads()->first()->priority);
+        $this->assertSame('https://academicecologyjobs.com/jobs/ecology-postdoc', $this->campaign->leads()->first()->listing_url);
     }
 
     public function test_scraper_import_is_read_only_and_ranks_paid_channel_signals(): void
@@ -483,5 +484,41 @@ class EmployerOutreachTest extends TestCase
         } finally {
             unlink($file);
         }
+    }
+
+    public function test_future_recruitment_pitch_is_never_sent(): void
+    {
+        $item = $this->automaticItem();
+        $item->message->update(['body' => 'This could help your future recruitment. '.$item->message->body]);
+        $ai = Mockery::mock(Assistant::class);
+        $ai->shouldNotReceive('json');
+        $pages = Mockery::mock(PublicPage::class);
+        $pages->shouldNotReceive('text');
+        (new AutoSendEmployerEmail($item))->handle($ai, $pages, new EmployerOutreach);
+        $this->assertSame('skipped', $item->fresh()->auto_review_status);
+        $this->assertStringContainsString('future or unspecified recruitment', $item->fresh()->auto_review_reason);
+        Queue::assertNotPushed(SendReviewedMessage::class);
+    }
+
+    public function test_drafting_skips_short_deadlines_and_passes_board_listing_and_newsletter_rule(): void
+    {
+        $contact = $this->contact();
+        $lead = $this->campaign->leads()->create(['source_job_id' => 'board', 'employer' => 'University', 'job_title' => 'Ecology vacancy', 'job_url' => 'https://university.edu/jobs/', 'listing_url' => 'https://academicecologyjobs.com/jobs/ecology-vacancy', 'source' => 'Jobrxiv', 'signal' => 'Hiring activity', 'deadline' => now()->addDays(10), 'first_seen' => now()]);
+        $batch = (new EmployerOutreach)->start($this->campaign);
+        $item = $batch->items()->create(['employer_contact_id' => $contact->id]);
+        $ai = Mockery::mock(Assistant::class);
+        $ai->shouldNotReceive('json');
+        (new DraftEmployerEmail($item))->handle($ai, new EmployerOutreach);
+        $this->assertSame('failed', $item->fresh()->status);
+        $this->assertStringContainsString('under 21 days', $item->fresh()->error);
+
+        $lead->update(['deadline' => now()->addDays(40)]);
+        $item->update(['status' => 'queued', 'error' => null]);
+        $ai = Mockery::mock(Assistant::class);
+        $ai->shouldReceive('json')->once()
+            ->withArgs(fn ($org, $prompt) => str_contains($prompt, 'https:\/\/academicecologyjobs.com\/jobs\/ecology-vacancy') && str_contains($prompt, 'newsletter feature is guaranteed'))
+            ->andReturn(['subject' => 'Your Ecology vacancy on Academic Ecology Jobs', 'body' => 'Your Ecology vacancy is already listed.']);
+        (new DraftEmployerEmail($item))->handle($ai, new EmployerOutreach);
+        $this->assertSame('ready', $item->fresh()->status);
     }
 }

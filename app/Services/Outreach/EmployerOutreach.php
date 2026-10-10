@@ -8,6 +8,7 @@ use App\Models\EmployerBatch;
 use App\Models\EmployerBatchItem;
 use App\Models\EmployerCampaign;
 use App\Models\EmployerContact;
+use App\Models\EmployerLead;
 use App\Models\OutreachMessage;
 use App\Models\Suppression;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,23 @@ use RuntimeException;
 
 class EmployerOutreach
 {
+    // A featured job needs time to be worth buying; the newsletter is only promised from 5 weeks out.
+    public const MIN_DAYS_TO_DEADLINE = 21;
+
+    public const NEWSLETTER_GUARANTEE_DAYS = 35;
+
+    /** The imported board lead for this contact's advert, if the vacancy came from the job feed. */
+    public function leadFor(EmployerContact $contact): ?EmployerLead
+    {
+        if (! $contact->job_advert_url) {
+            return null;
+        }
+        $key = self::advertKey($contact->job_advert_url);
+
+        return $contact->campaign->leads()->whereNotNull('job_url')->orderByDesc('first_seen')->get()
+            ->first(fn ($lead) => self::advertKey($lead->job_url) === $key);
+    }
+
     public static function advertKey(string $url): string
     {
         $host = preg_replace('/^www\./', '', strtolower(parse_url($url, PHP_URL_HOST) ?? ''));

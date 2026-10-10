@@ -82,8 +82,10 @@ class AcademicEmployerLeads
             }
             $source = preg_replace('/^View on /', '', $item['inReplyTo']['name'] ?? parse_url($url, PHP_URL_HOST));
             $paid = in_array(strtolower(parse_url($url, PHP_URL_HOST)), ['jobs.ac.uk', 'www.jobs.ac.uk']);
+            // The item id is the job's own page on the board, shown to employers as "already listed".
+            $listing = is_string($item['id'] ?? null) && PublicPage::validUrl($item['id']) ? mb_substr($item['id'], 0, 255) : null;
             $lead = $campaign->leads()->firstOrCreate(['source_job_id' => hash('sha256', $url)], [
-                'employer' => mb_substr($employer, 0, 255), 'job_title' => mb_substr($title, 0, 255), 'job_url' => $url,
+                'employer' => mb_substr($employer, 0, 255), 'job_title' => mb_substr($title, 0, 255), 'job_url' => $url, 'listing_url' => $listing,
                 'source' => $paid ? 'jobsacuk' : mb_substr($source, 0, 255),
                 'country' => mb_substr($item['attributedTo']['location'] ?? '', 0, 255), 'deadline' => $deadline, 'first_seen' => $seen,
                 'signal' => $paid ? 'Paid advertising channel — purchase unconfirmed' : 'Hiring activity — advertising spend unknown',
@@ -92,6 +94,8 @@ class AcademicEmployerLeads
             ]);
             if ($lead->wasRecentlyCreated) {
                 $count++;
+            } elseif ($listing && ! $lead->listing_url) {
+                $lead->update(['listing_url' => $listing]);
             }
         }
 

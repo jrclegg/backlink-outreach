@@ -45,7 +45,7 @@ class PrepareEmployerBatch implements ShouldQueue
             if (config('outreach.academic_jobs_database') || config('outreach.academic_jobs_feed')) {
                 app(AcademicEmployerLeads::class)->import($campaign);
             }
-            $leadQuery = $campaign->leads()->where(fn ($q) => $q->whereNull('deadline')->orWhere('deadline', '>=', now()))->where('first_seen', '>=', now()->subDays(60))->orderByDesc('priority')->orderByDesc('first_seen');
+            $leadQuery = $campaign->leads()->where(fn ($q) => $q->whereNull('deadline')->orWhere('deadline', '>=', now()->addDays(EmployerOutreach::MIN_DAYS_TO_DEADLINE)))->where('first_seen', '>=', now()->subDays(60))->orderByDesc('priority')->orderByDesc('first_seen');
             $leadColumns = ['employer', 'job_title', 'job_url', 'source', 'signal', 'country', 'deadline', 'rate_url'];
             $leads = (clone $leadQuery)->limit(20)->get($leadColumns);
             if ($campaign->discover && $campaign->weekly_limit > 8) {
