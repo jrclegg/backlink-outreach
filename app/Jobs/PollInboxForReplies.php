@@ -46,7 +46,7 @@ class PollInboxForReplies implements ShouldQueue
             $inbox->update(['last_polled_at' => $startedAt, 'sync_error' => null]);
         } catch (\Throwable $e) {
             $inbox->update(['sync_error' => 'Sync failed. Check IMAP host, folder, credentials and provider access. Your last successful sync was preserved.']);
-            throw new \RuntimeException('Inbox synchronization failed for inbox '.$inbox->id);
+            throw new \RuntimeException('Inbox synchronization failed for inbox '.$inbox->id.': '.$e->getMessage(), 0, $e);
         }
     }
 }
