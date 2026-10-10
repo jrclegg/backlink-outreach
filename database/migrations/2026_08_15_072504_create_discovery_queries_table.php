@@ -21,6 +21,10 @@ return new class extends Migration
             $table->text('error')->nullable();
             $table->timestamps();
         });
+
+        Schema::table('prospects', function (Blueprint $table) {
+            $table->foreign('discovery_query_id')->references('id')->on('discovery_queries')->cascadeOnDelete();
+        });
     }
 
     /**
@@ -28,6 +32,9 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::table('prospects', function (Blueprint $table) {
+            $table->dropForeign(['discovery_query_id']);
+        });
         Schema::dropIfExists('discovery_queries');
     }
 };

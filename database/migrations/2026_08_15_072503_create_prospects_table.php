@@ -21,7 +21,8 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->string('status')->default('new');
             $table->string('source')->default('csv_import');
-            $table->foreignId('discovery_query_id')->nullable()->constrained()->cascadeOnDelete();
+            // Constrained in the discovery_queries migration, which runs after this one.
+            $table->foreignId('discovery_query_id')->nullable();
             $table->timestamps();
             $table->unique(['project_id', 'contact_email']);
         });
