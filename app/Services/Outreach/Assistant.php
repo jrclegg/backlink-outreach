@@ -21,7 +21,18 @@ class Assistant
     public function request(Organization $org, array $messages, array $tools = []): array
     {
         if ($this->usesCodex()) {
-            return app(CodexAssistant::class)->request($messages, (bool) $tools);
+            try {
+                return app(CodexAssistant::class)->request($messages, (bool) $tools);
+            } catch (RuntimeException $codexError) {
+                if (! config('outreach.claude_fallback')) {
+                    throw $codexError;
+                }
+                try {
+                    return app(ClaudeCodeAssistant::class)->request($messages, (bool) $tools);
+                } catch (RuntimeException $claudeError) {
+                    throw new RuntimeException($codexError->getMessage().' Claude backup also failed: '.$claudeError->getMessage(), 0, $claudeError);
+                }
+            }
         }
         if (! $org->llm_api_key) {
             throw new RuntimeException('Add your Anthropic API key in AI settings first.');
