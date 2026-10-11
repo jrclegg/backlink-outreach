@@ -23,7 +23,7 @@ Schedule::call(function () {
     EmailInbox::where('is_active', true)->each(function ($inbox) {
         PollInboxForReplies::dispatch($inbox);
     });
-})->everyFiveMinutes()
+})->everyFifteenMinutes()
     ->name('poll-inboxes')
     ->withoutOverlapping();
 
@@ -46,6 +46,13 @@ Schedule::call(function () {
         ->where('send_time', '<=', $now->format('H:i'))
         ->each(fn ($campaign) => app(\App\Services\Outreach\EmployerOutreach::class)->start($campaign));
 })->everyMinute()->name('prepare-employer-outreach')->withoutOverlapping();
+
+// One London-time sponsor research batch per day; start() is idempotent per day.
+Schedule::call(function () {
+    \App\Models\SponsorCampaign::where('enabled', true)
+        ->where('send_time', '<=', now('Europe/London')->format('H:i'))
+        ->each(fn ($campaign) => app(\App\Services\Outreach\SponsorOutreach::class)->start($campaign));
+})->everyMinute()->name('prepare-sponsor-outreach')->withoutOverlapping();
 
 Schedule::call(function () {
     \App\Models\EmployerBatchItem::whereNull('auto_reviewed_at')
