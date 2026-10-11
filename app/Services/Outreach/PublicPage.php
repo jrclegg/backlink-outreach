@@ -65,8 +65,28 @@ class PublicPage
 
     public function text(string $url): string
     {
-        $html = preg_replace('/<(script|style|nav|footer)\b[^>]*>.*?<\/\1>/is', '', $this->fetch($url));
+        $raw = $this->fetch($url);
+        $html = preg_replace('/<(script|style|nav|footer)\b[^>]*>.*?<\/\1>/is', '', $raw);
+        // Contact emails usually sit in footers, mailto links or Cloudflare-encoded spans that the text drops,
+        // so list them first where truncation can't remove them.
+        $emails = self::emails($raw);
+        $prefix = $emails ? 'Email addresses published on this page: '.implode(', ', $emails).'. ' : '';
 
-        return mb_substr(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($html))), 0, 18000);
+        return mb_substr($prefix.preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($html))), 0, 18000);
+    }
+
+    public static function emails(string $html): array
+    {
+        $decoded = [];
+        preg_match_all('/data-cfemail="([0-9a-f]+)"|email-protection#([0-9a-f]+)/i', $html, $encoded, PREG_SET_ORDER);
+        foreach ($encoded as $match) {
+            $bytes = array_map('hexdec', str_split($match[1] ?: $match[2], 2));
+            $key = array_shift($bytes);
+            $decoded[] = implode('', array_map(fn ($byte) => chr($byte ^ $key), $bytes));
+        }
+        preg_match_all('/[a-z0-9._%+\-]+@[a-z0-9\-]+(?:\.[a-z0-9\-]+)*\.[a-z]{2,}/i', html_entity_decode(urldecode($html)).' '.implode(' ', $decoded), $found);
+
+        return array_values(array_unique(array_filter(array_map('strtolower', $found[0]),
+            fn ($email) => ! preg_match('/\.(png|jpe?g|gif|webp|svg|css|js)$|@\d+x\.|sentry|wixpress|example\.com/', $email))));
     }
 }
