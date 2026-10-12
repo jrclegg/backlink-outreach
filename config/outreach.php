@@ -11,4 +11,6 @@ return [
     'claude_fallback' => (bool) env('CLAUDE_FALLBACK', true),
     'claude_binary' => env('CLAUDE_BINARY', 'claude'),
     'claude_model' => env('CLAUDE_MODEL', 'opus'),
+    // Renders JavaScript-only pages with Playwright; the launchd workers need an absolute path.
+    'node_binary' => env('NODE_BINARY', 'node'),
 ];

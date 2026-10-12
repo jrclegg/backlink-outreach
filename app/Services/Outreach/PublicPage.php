@@ -5,6 +5,7 @@ namespace App\Services\Outreach;
 use GuzzleHttp\Psr7\Uri;
 use GuzzleHttp\Psr7\UriResolver;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Process;
 use RuntimeException;
 
 class PublicPage
@@ -66,13 +67,57 @@ class PublicPage
     public function text(string $url): string
     {
         $raw = $this->fetch($url);
-        $html = preg_replace('/<(script|style|nav|footer)\b[^>]*>.*?<\/\1>/is', '', $raw);
+        $body = self::bodyText($raw);
+        // JavaScript-built pages (Interfolio, many US job portals) come back as an empty shell, so render those in a browser.
+        if (mb_strlen($body) < 1500 || preg_match('/enable javascript|\{\{\s*\$?\w|^\s*loading\W*$/i', $body)) {
+            try {
+                $rendered = $this->render($url);
+                if (mb_strlen(self::bodyText($rendered)) > mb_strlen($body)) {
+                    $raw = $rendered;
+                    $body = self::bodyText($rendered);
+                }
+            } catch (\Throwable) {
+                // Keep the plain fetch; the quality check will reject the page if it is still unusable.
+            }
+        }
         // Contact emails usually sit in footers, mailto links or Cloudflare-encoded spans that the text drops,
         // so list them first where truncation can't remove them.
         $emails = self::emails($raw);
         $prefix = $emails ? 'Email addresses published on this page: '.implode(', ', $emails).'. ' : '';
 
-        return mb_substr($prefix.preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($html))), 0, 18000);
+        return mb_substr($prefix.$body, 0, 18000);
+    }
+
+    public function render(string $url): string
+    {
+        $result = Process::timeout(75)->path(base_path())
+            ->run([config('outreach.node_binary'), resource_path('scripts/render-page.mjs'), $url]);
+        if (! $result->successful() || trim($result->output()) === '') {
+            throw new RuntimeException('Page could not be rendered.');
+        }
+
+        return $result->output();
+    }
+
+    private static function bodyText(string $html): string
+    {
+        // Job portals such as Workday publish the full advert as JobPosting structured data, which the script strip would drop.
+        $posting = '';
+        preg_match_all('/<script\b[^>]*application\/ld\+json[^>]*>(.*?)<\/script>/is', $html, $blocks);
+        foreach ($blocks[1] as $block) {
+            $data = json_decode(html_entity_decode($block), true);
+            foreach (is_array($data) && array_is_list($data) ? $data : [$data] as $item) {
+                if (is_array($item) && ($item['@type'] ?? null) === 'JobPosting') {
+                    $posting .= ' '.implode('. ', array_filter([$item['title'] ?? null, $item['hiringOrganization']['name'] ?? null,
+                        isset($item['datePosted']) ? 'Date posted: '.$item['datePosted'] : null,
+                        isset($item['validThrough']) ? 'Valid through: '.$item['validThrough'] : null,
+                        strip_tags(str_replace(['<br>', '</p>', '</li>'], ' ', html_entity_decode($item['description'] ?? '')))], 'is_string'));
+                }
+            }
+        }
+        $html = preg_replace('/<(script|style|nav|footer)\b[^>]*>.*?<\/\1>/is', '', $html);
+
+        return trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($html)).$posting));
     }
 
     public static function emails(string $html): array

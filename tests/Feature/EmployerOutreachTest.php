@@ -430,7 +430,7 @@ class EmployerOutreachTest extends TestCase
         $batch = (new EmployerOutreach)->start($this->campaign);
         (new PrepareEmployerBatch($batch))->handle(new Assistant, new PublicPage, new EmployerOutreach);
 
-        Queue::assertPushed(ResearchEmployerContacts::class, 9);
+        Queue::assertPushed(ResearchEmployerContacts::class, 17);
         Queue::assertPushed(ResearchEmployerContacts::class, function ($job) use ($lead) {
             return count($job->leads) === 1
                 && $job->leads[0]['employer'] === 'Current University'
@@ -444,6 +444,22 @@ class EmployerOutreachTest extends TestCase
             }
         }
         Queue::assertNotPushed(SendReviewedMessage::class);
+    }
+
+    public function test_expanded_preparation_skips_leads_whose_advert_already_has_a_contact(): void
+    {
+        $this->campaign->update(['discover' => true, 'weekly_limit' => 50]);
+        $lead = ['employer' => 'Known University', 'job_title' => 'Ecology postdoc', 'job_url' => 'https://www.known.edu/jobs/1/', 'source' => 'jobsacuk', 'signal' => 'Paid channel', 'country' => 'UK', 'deadline' => now()->addMonth(), 'first_seen' => now(), 'rate_url' => null];
+        $this->campaign->leads()->create(array_merge($lead, ['source_job_id' => 'known']));
+        $this->campaign->leads()->create(array_merge($lead, ['source_job_id' => 'same-title', 'employer' => 'Titled University', 'job_url' => 'https://aggregator.example/123']));
+        $this->campaign->leads()->create(array_merge($lead, ['source_job_id' => 'fresh', 'employer' => 'Fresh University', 'job_url' => 'https://fresh.edu/jobs/2']));
+        $this->campaign->contacts()->create(['employer' => 'Known University', 'email' => 'a@known.edu', 'source_url' => 'https://known.edu', 'job_advert_url' => 'https://known.edu/jobs/1', 'job_advert_title' => 'Other title', 'relevance' => 'Known']);
+        $this->campaign->contacts()->create(['employer' => 'Titled University', 'email' => 'b@titled.edu', 'source_url' => 'https://titled.edu', 'job_advert_url' => 'https://titled.edu/vacancy', 'job_advert_title' => 'Ecology Postdoc', 'relevance' => 'Known']);
+        $batch = (new EmployerOutreach)->start($this->campaign);
+        (new PrepareEmployerBatch($batch))->handle(new Assistant, new PublicPage, new EmployerOutreach);
+
+        $employers = Queue::pushed(ResearchEmployerContacts::class)->flatMap(fn ($job) => array_column($job->leads, 'employer'))->all();
+        $this->assertSame(['Fresh University'], $employers);
     }
 
     public function test_live_feed_import_rejects_stale_and_expired_jobs_and_deduplicates(): void

@@ -49,8 +49,14 @@ class PrepareEmployerBatch implements ShouldQueue
             $leadColumns = ['employer', 'job_title', 'job_url', 'source', 'signal', 'country', 'deadline', 'rate_url'];
             $leads = (clone $leadQuery)->limit(20)->get($leadColumns);
             if ($campaign->discover && $campaign->weekly_limit > 8) {
-                $groups = (clone $leadQuery)->limit(200)->get($leadColumns)->unique('employer')->values()->chunk(8)->map(fn ($group) => ['leads' => $group->values()->all(), 'focus' => 'Current scraped academic hiring leads'])->all();
-                foreach (['UK ecology university departments', 'UK conservation and biodiversity research institutes', 'US ecology and evolution university departments', 'Canadian ecology and conservation researchers', 'Australian ecology university departments', 'European ecology research institutes', 'Scandinavian biodiversity university departments', 'New Zealand ecology university departments'] as $focus) {
+                // Skip leads whose vacancy already has a contact, so daily research goes to fresh adverts.
+                $known = $campaign->contacts()->get(['employer', 'job_advert_url', 'job_advert_title']);
+                $knownAdverts = $known->map(fn ($contact) => EmployerOutreach::advertKey($contact->job_advert_url ?? ''))->filter()->flip();
+                $knownTitles = $known->map(fn ($contact) => mb_strtolower(trim($contact->employer).'|'.trim($contact->job_advert_title)))->flip();
+                $groups = (clone $leadQuery)->limit(200)->get($leadColumns)
+                    ->reject(fn ($lead) => isset($knownAdverts[EmployerOutreach::advertKey($lead->job_url ?? '')]) || isset($knownTitles[mb_strtolower(trim($lead->employer).'|'.trim($lead->job_title))]))
+                    ->unique('employer')->values()->chunk(5)->map(fn ($group) => ['leads' => $group->values()->all(), 'focus' => 'Current scraped academic hiring leads'])->all();
+                foreach (['UK ecology university departments', 'UK conservation and biodiversity research institutes', 'UK environmental and plant science departments', 'US ecology and evolution university departments', 'US wildlife, fisheries and natural resources departments', 'US marine and freshwater biology departments', 'Canadian ecology and conservation researchers', 'Australian ecology university departments', 'European ecology research institutes', 'German, Dutch and Swiss ecology and evolution departments', 'French, Spanish and Italian ecology research institutes', 'Scandinavian biodiversity university departments', 'New Zealand ecology university departments', 'South African and Latin American ecology departments', 'Asian ecology and evolution university departments', 'Ecology PhD studentships and doctoral training programmes'] as $focus) {
                     $groups[] = ['leads' => [], 'focus' => $focus];
                 }
                 $generation = (string) Str::uuid();
