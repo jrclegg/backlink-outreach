@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/usr/local/opt/php@8.2/bin:/Users/jonathanclegg/.local/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+	</dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>com.jonathanclegg.outreach.delivery</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/local/opt/php@8.2/bin/php</string>
+		<string>artisan</string>
+		<string>queue:work</string>
+		<string>--queue=outgoing,employer-quality,research</string>
+		<string>--timeout=720</string>
+		<string>--max-time=3600</string>
+		<string>--sleep=3</string>
+		<string>--tries=1</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/Users/jonathanclegg/Documents/backlinks-outreach/storage/logs/delivery-worker.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/jonathanclegg/Documents/backlinks-outreach/storage/logs/delivery-worker.log</string>
+	<key>ThrottleInterval</key>
+	<integer>30</integer>
+	<key>WorkingDirectory</key>
+	<string>/Users/jonathanclegg/Documents/backlinks-outreach</string>
+</dict>
+</plist>

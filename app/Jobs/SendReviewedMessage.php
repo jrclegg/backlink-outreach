@@ -3,18 +3,25 @@
 namespace App\Jobs;
 
 use App\Models\CampaignRecipient;
+use App\Models\ConsultancyProspect;
 use App\Models\EmployerBatchItem;
+use App\Models\LeadProspect;
 use App\Models\OutreachMessage;
+use App\Models\SponsorProspect;
 use App\Models\Suppression;
 use App\Services\Mail\DynamicMailerFactory;
 use App\Services\Mail\SmtpErrorTranslator;
+use App\Services\Outreach\ConsultancyOutreach;
+use App\Services\Outreach\LeadOutreach;
 use App\Services\Outreach\PublicPage;
+use App\Services\Outreach\SponsorOutreach;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 
@@ -55,6 +62,67 @@ class SendReviewedMessage implements ShouldQueue
             return;
         }
         $inbox = $message->emailInbox;
+        $sponsor = SponsorProspect::where('outreach_message_id', $message->id)->first();
+        if ($sponsor) {
+            $campaign = $sponsor->campaign;
+            if (! $campaign->enabled || ! $campaign->auto_send || $sponsor->status !== 'passed'
+                || ! $sponsor->reviewed_at || $sponsor->reviewed_at->lt(now()->subDay())
+                || SponsorOutreach::signature($sponsor) !== $sponsor->signature
+                || ! app(SponsorOutreach::class)->eligible($sponsor)) {
+                $message->update(['status' => 'failed', 'error' => 'Sponsorship sending stopped: campaign disabled, contact ineligible, quality check expired or draft/evidence changed.']);
+
+                return;
+            }
+            if (OutreachMessage::whereIn('id', $campaign->prospects()->select('outreach_message_id'))
+                ->where('sent_at', '>=', now('Europe/London')->startOfDay())->count() >= $campaign->daily_limit) {
+                $this->release((int) max(60, ceil(now('Europe/London')->diffInSeconds(now('Europe/London')->addDay()->startOfDay()))));
+
+                return;
+            }
+        }
+        $consultancy = ConsultancyProspect::where('outreach_message_id', $message->id)->first();
+        if ($consultancy && ! app(ConsultancyOutreach::class)->eligible($consultancy)) {
+            $message->update(['status' => 'failed', 'error' => 'Consultancy outreach blocked: this firm has already been contacted, excluded or suppressed.']);
+
+            return;
+        }
+        // 'approved' means the app approved it automatically; drafts you send yourself skip the automatic checks.
+        if ($consultancy?->status === 'approved') {
+            $campaign = $consultancy->campaign;
+            if (! $campaign->enabled || ! $campaign->auto_send || ! $consultancy->reviewed_at || $consultancy->reviewed_at->lt(now()->subDay())
+                || ConsultancyOutreach::signature($consultancy) !== $consultancy->signature) {
+                $message->update(['status' => 'failed', 'error' => 'Consultancy sending stopped: campaign disabled, quality check expired or draft changed.']);
+
+                return;
+            }
+            if (OutreachMessage::whereIn('id', $campaign->prospects()->select('outreach_message_id'))
+                ->where('sent_at', '>=', now('Europe/London')->startOfDay())->count() >= $campaign->daily_limit) {
+                $this->release((int) max(60, ceil(now('Europe/London')->diffInSeconds(now('Europe/London')->addDay()->startOfDay()))));
+
+                return;
+            }
+        }
+        $lead = LeadProspect::where('outreach_message_id', $message->id)->first();
+        if ($lead && ! app(LeadOutreach::class)->eligible($lead)) {
+            $message->update(['status' => 'failed', 'error' => 'Lead outreach blocked: this business has already been contacted, excluded or suppressed.']);
+
+            return;
+        }
+        if ($lead?->status === 'approved') {
+            $campaign = $lead->campaign;
+            if (! $campaign->enabled || ! $campaign->auto_send || ! $lead->reviewed_at || $lead->reviewed_at->lt(now()->subDay())
+                || LeadOutreach::signature($lead) !== $lead->signature) {
+                $message->update(['status' => 'failed', 'error' => 'Lead sending stopped: campaign disabled, quality check expired or draft changed.']);
+
+                return;
+            }
+            if (OutreachMessage::whereIn('id', $campaign->prospects()->select('outreach_message_id'))
+                ->where('sent_at', '>=', now('Europe/London')->startOfDay())->count() >= $campaign->daily_limit) {
+                $this->release((int) max(60, ceil(now('Europe/London')->diffInSeconds(now('Europe/London')->addDay()->startOfDay()))));
+
+                return;
+            }
+        }
         $employerItem = EmployerBatchItem::with('contact')->where('outreach_message_id', $message->id)->first();
         if ($employerItem?->auto_review_status === 'passed') {
             $campaign = $employerItem->batch->campaign;
@@ -112,7 +180,7 @@ class SendReviewedMessage implements ShouldQueue
             $sensitiveValues = [$inbox->smtp_password, $inbox->imap_password, $message->subject, $message->body];
             // SMTP delivery can be ambiguous. Never automatically resend after an error.
             $message->update(['status' => 'failed', 'error' => SmtpErrorTranslator::translate($e).' '.SmtpErrorTranslator::diagnosticSummary($e, $sensitiveValues).' Delivery could not be confirmed. Check the recipient’s inbox and your provider’s Sent folder before creating another draft. This email will not be retried automatically.']);
-            \Illuminate\Support\Facades\Log::warning('Outgoing email failed', [
+            Log::warning('Outgoing email failed', [
                 'message_id' => $message->id,
                 'inbox_id' => $inbox->id,
                 'diagnostics' => SmtpErrorTranslator::diagnostics($e, $sensitiveValues),

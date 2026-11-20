@@ -21,7 +21,7 @@ class ResearchEmployerContacts implements ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 700;
+    public int $timeout = 1500;
 
     public bool $failOnTimeout = true;
 
@@ -40,7 +40,7 @@ class ResearchEmployerContacts implements ShouldQueue
         }
         try {
             $c = $this->batch->campaign;
-            $response = $ai->request($c->project->organization, [['role' => 'user', 'content' => 'Search live official employer websites and research up to 8 NEW suitable hiring contacts for ecology/evolution/conservation academic employer outreach. Audience: '.$c->audience.'. Focus: '.$this->focus.'. Prioritise these current hiring leads: '.json_encode($this->leads).'. If a lead has no suitable public contact, find another relevant employer. One contact per employer where possible. Hiring PIs and department administrators are acceptable, but flag unknown purchasing authority. Only include employers with a specific current job advert URL. Staff profiles, generic careers pages and broad jobs lists do not count as job adverts. Include the advert URL in sources. Omit contacts without a job advert; never invent a URL. Do not guess addresses. A published email must appear literally on an official source page you open. Return JSON only {"contacts":[{"employer":"name","email":"published address","source_url":"official source URL","job_advert_url":"specific vacancy URL in sources","job_advert_title":"vacancy title","relevance":"specific relevant research/hiring evidence; note uncertain purchasing authority"}]}. Cite every source URL in sources. Avoid these already collected addresses: '.json_encode($c->contacts()->pluck('email')).'. Do not send anything. Today: '.now()->toDateString()]], [['type' => 'web_search_20250305', 'name' => 'web_search', 'max_uses' => 8]]);
+            $response = $ai->request($c->project->organization, [['role' => 'user', 'content' => 'Search live official employer websites and research up to 8 NEW suitable hiring contacts for ecology/evolution/conservation academic employer outreach. Audience: '.$c->audience.'. Focus: '.$this->focus.'. Prioritise these current hiring leads: '.json_encode($this->leads).'. If a lead has no suitable public contact, find another relevant employer. One contact per employer where possible. Hiring PIs and department administrators are acceptable, but flag unknown purchasing authority. Only include employers with a specific current job advert URL. Open the advert and verify it is accepting applications today. Prefer closing dates at least 21 days after today; exclude closed or expired adverts and roles closing sooner. A review-start date, start-of-employment date or valid-through metadata is not an application deadline. An unknown deadline is acceptable only with explicit current applications or open-until-filled evidence. Staff profiles, generic careers pages and broad jobs lists do not count as job adverts. Include the advert URL in sources. Omit contacts without a job advert; never invent a URL. Do not guess addresses. A published email must appear literally on an official source page you open. Return JSON only {"contacts":[{"employer":"name","email":"published address","source_url":"official source URL","job_advert_url":"specific vacancy URL in sources","job_advert_title":"vacancy title","relevance":"specific relevant research/hiring evidence; note uncertain purchasing authority"}]}. Cite every source URL in sources. Avoid these already collected addresses: '.json_encode($c->contacts()->pluck('email')).'. Do not send anything. Today: '.now()->toDateString()]], [['type' => 'web_search_20250305', 'name' => 'web_search', 'max_uses' => 8]]);
             if (($response['stop_reason'] ?? '') !== 'end_turn') {
                 throw new RuntimeException('Research did not finish.');
             }
@@ -99,6 +99,8 @@ class ResearchEmployerContacts implements ShouldQueue
                 $b->update(['research' => ($b->research ?? '')."\nResearch part ".$this->part.' failed: '.($e instanceof RuntimeException ? $e->getMessage() : 'Source verification failed.')]);
             });
         } finally {
+            // Do not hold usable contacts until every slow research group has finished.
+            app(\App\Services\Outreach\DailyOutreachTargets::class)->fill();
             $this->finish();
         }
     }
@@ -113,6 +115,13 @@ class ResearchEmployerContacts implements ShouldQueue
         }
         $b = $this->batch->fresh();
         $c = $b->campaign;
+        if ($c->cadence === 'daily' && $c->enabled && $c->auto_send) {
+            app(\App\Services\Outreach\DailyOutreachTargets::class)->fill();
+            $b->update(['status' => 'drafting', 'error' => null]);
+            $b->refreshProgress();
+
+            return;
+        }
         $remaining = max(0, $c->weekly_limit - $b->items()->count());
         foreach ($c->contacts()->where('status', '!=', 'excluded')->whereDoesntHave('item')->orderBy('id')->get() as $contact) {
             if (! $remaining) {

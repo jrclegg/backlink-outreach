@@ -54,6 +54,20 @@ Schedule::call(function () {
         ->each(fn ($campaign) => app(\App\Services\Outreach\SponsorOutreach::class)->start($campaign));
 })->everyMinute()->name('prepare-sponsor-outreach')->withoutOverlapping();
 
+// One London-time consultancy discovery batch per day; start() is idempotent per day.
+Schedule::call(function () {
+    \App\Models\ConsultancyCampaign::where('enabled', true)
+        ->where('send_time', '<=', now('Europe/London')->format('H:i'))
+        ->each(fn ($campaign) => app(\App\Services\Outreach\ConsultancyOutreach::class)->start($campaign));
+})->everyMinute()->name('prepare-consultancy-outreach')->withoutOverlapping();
+
+// One London-time product lead batch per day (e.g. Invoice Customiser); start() is idempotent per day.
+Schedule::call(function () {
+    \App\Models\LeadCampaign::where('enabled', true)
+        ->where('send_time', '<=', now('Europe/London')->format('H:i'))
+        ->each(fn ($campaign) => app(\App\Services\Outreach\LeadOutreach::class)->start($campaign));
+})->everyMinute()->name('prepare-lead-outreach')->withoutOverlapping();
+
 Schedule::call(function () {
     \App\Models\EmployerBatchItem::whereNull('auto_reviewed_at')
         ->whereHas('message', fn ($q) => $q->where('status', 'draft'))
@@ -61,3 +75,19 @@ Schedule::call(function () {
         ->whereHas('batch.campaign', fn ($q) => $q->where('enabled', true)->where('auto_send', true))
         ->each(fn ($item) => \App\Jobs\AutoSendEmployerEmail::dispatch($item));
 })->everyFiveMinutes()->name('check-automatic-employer-outreach')->withoutOverlapping();
+
+Schedule::call(fn () => app(\App\Services\Outreach\DailyOutreachTargets::class)->fill())
+    ->everyThirtyMinutes()->name('fill-daily-outreach-targets')->withoutOverlapping();
+
+// Review daily copy after the day's outreach; keep recommendations for human review.
+Schedule::call(function () {
+    \App\Models\EmployerCampaign::where('enabled', true)->each(fn ($campaign) =>
+        \App\Jobs\ReviewDailyEmployerEmails::dispatch($campaign, now('Europe/London')->toDateString()));
+})->dailyAt('18:00')->timezone('Europe/London')
+    ->name('review-daily-employer-emails')->withoutOverlapping();
+
+Schedule::call(function () {
+    \App\Models\SponsorCampaign::where('enabled', true)->each(fn ($campaign) =>
+        \App\Jobs\ReviewDailySponsorEmails::dispatch($campaign, now('Europe/London')->toDateString()));
+})->dailyAt('18:10')->timezone('Europe/London')
+    ->name('review-daily-sponsor-emails')->withoutOverlapping();

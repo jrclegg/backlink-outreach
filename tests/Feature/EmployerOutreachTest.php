@@ -537,4 +537,144 @@ class EmployerOutreachTest extends TestCase
         (new DraftEmployerEmail($item))->handle($ai, new EmployerOutreach);
         $this->assertSame('ready', $item->fresh()->status);
     }
+    public function test_daily_targets_draft_during_research_and_replace_rejections_on_weekends_without_overfilling(): void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-10-17 12:00', 'Europe/London'));
+        $item = $this->automaticItem();
+        $this->campaign->update(['cadence' => 'daily', 'send_time' => '07:15']);
+        $item->batch->update(['week' => now('Europe/London')->toDateString(), 'status' => 'researching']);
+        $item->update(['auto_reviewed_at' => now(), 'auto_review_status' => 'failed']);
+        $replacement = $this->contact('another@university.edu');
+        $replacement->update(['job_advert_url' => 'https://university.edu/another-vacancy']);
+        $targets = new \App\Services\Outreach\DailyOutreachTargets;
+        $targets->fill();
+        $targets->fill();
+        $this->assertSame(2, $item->batch->items()->count());
+        $this->assertSame('researching', $item->batch->fresh()->status);
+        Queue::assertPushed(DraftEmployerEmail::class, 1);
+        Queue::assertNotPushed(SendReviewedMessage::class);
+    }
+
+    public function test_exhausted_daily_pool_starts_one_bounded_research_round(): void
+    {
+        Cache::flush();
+        $this->travelTo(\Carbon\Carbon::parse('2026-10-17 12:00', 'Europe/London'));
+        $this->campaign->update(['enabled' => true, 'auto_send' => true, 'cadence' => 'daily', 'discover' => true, 'send_time' => '07:15']);
+        $batch = $this->campaign->batches()->create(['week' => now('Europe/London')->toDateString(), 'status' => 'ready']);
+        $targets = new \App\Services\Outreach\DailyOutreachTargets;
+        for ($round = 0; $round < 4; $round++) {
+            $targets->fill();
+            $targets->fill();
+            $batch->refresh()->update(['status' => 'ready']);
+        }
+        Queue::assertPushed(ResearchEmployerContacts::class, 18);
+        $this->campaign->update(['discover' => false]);
+        $targets->fill();
+        Queue::assertPushed(ResearchEmployerContacts::class, 18);
+    }
+
+    public function test_daily_targets_do_not_replace_approved_emails_or_start_early(): void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-10-17 12:00', 'Europe/London'));
+        $item = $this->automaticItem();
+        $this->campaign->update(['cadence' => 'daily', 'send_time' => '13:00']);
+        $item->batch->update(['week' => now('Europe/London')->toDateString(), 'status' => 'ready']);
+        $item->update(['auto_reviewed_at' => now(), 'auto_review_status' => 'failed']);
+        $this->contact('another@university.edu');
+        $targets = new \App\Services\Outreach\DailyOutreachTargets;
+        $targets->fill();
+        Queue::assertNotPushed(DraftEmployerEmail::class);
+        $this->campaign->update(['send_time' => '07:15']);
+        $item->message->update(['approved_at' => now(), 'status' => 'sent', 'sent_at' => now()]);
+        $targets->fill();
+        Queue::assertNotPushed(DraftEmployerEmail::class);
+    }
+
+    public function test_sponsor_topups_are_bounded_and_stop_at_the_daily_target(): void
+    {
+        Cache::flush();
+        $this->travelTo(\Carbon\Carbon::parse('2026-10-17 12:00', 'Europe/London'));
+        $campaign = \App\Models\SponsorCampaign::create([
+            'project_id' => $this->project->id, 'email_inbox_id' => $this->inbox->id,
+            'audience' => 'Academic ecologists', 'offer' => '£400 sponsorship',
+            'booking_url' => 'https://example.com/sponsorship', 'enabled' => true,
+            'auto_send' => true, 'daily_limit' => 5, 'send_time' => '09:00',
+        ]);
+        $batch = $campaign->batches()->create(['day' => now('Europe/London')->toDateString(), 'status' => 'drafting']);
+        $targets = new \App\Services\Outreach\DailyOutreachTargets;
+        $outreach = Mockery::mock(\App\Services\Outreach\SponsorOutreach::class);
+        $outreach->shouldReceive('approvalCount')->andReturn(5, 0, 0, 0, 0, 0, 0);
+        $this->app->instance(\App\Services\Outreach\SponsorOutreach::class, $outreach);
+        $targets->fill();
+        Queue::assertNotPushed(\App\Jobs\ResearchSponsorBatch::class);
+        for ($round = 0; $round < 6; $round++) {
+            $targets->fill();
+            $targets->fill(); // A queued round must not be dispatched twice.
+            $batch->refresh()->update(['status' => 'needs_attention']);
+        }
+        Queue::assertPushed(\App\Jobs\ResearchSponsorBatch::class, 5);
+        $campaign->update(['auto_send' => false]);
+        $targets->fill();
+        Queue::assertPushed(\App\Jobs\ResearchSponsorBatch::class, 5);
+    }
+
+    public function test_sponsor_delivery_rechecks_daily_cap_and_campaign_state(): void
+    {
+        $campaign = \App\Models\SponsorCampaign::create([
+            'project_id' => $this->project->id, 'email_inbox_id' => $this->inbox->id,
+            'audience' => 'Academic ecologists', 'offer' => '£400 sponsorship',
+            'booking_url' => 'https://example.com/sponsorship', 'enabled' => true,
+            'auto_send' => true, 'daily_limit' => 1,
+        ]);
+        $batch = $campaign->batches()->create(['day' => now('Europe/London')->toDateString()]);
+        $messages = [];
+        foreach (['sent', 'queued'] as $status) {
+            $thread = Conversation::create(['project_id' => $this->project->id, 'email_inbox_id' => $this->inbox->id, 'contact_email' => $status.'@vendor.test', 'subject' => 'Sponsor']);
+            $message = $thread->messages()->create([
+                'email_inbox_id' => $this->inbox->id, 'direction' => 'outbound', 'status' => $status,
+                'from_email' => 'owner@example.com', 'to_email' => $status.'@vendor.test',
+                'subject' => 'Sponsor', 'body' => 'Sponsorship details', 'message_id' => $status.'@example.com',
+                'approved_at' => now(), 'sent_at' => $status === 'sent' ? now() : null,
+            ]);
+            $prospect = $batch->prospects()->create([
+                'sponsor_campaign_id' => $campaign->id, 'outreach_message_id' => $message->id,
+                'organization' => $status, 'email' => $message->to_email, 'domain' => $status.'.test',
+                'source_url' => 'https://'.$status.'.test/contact', 'product_url' => 'https://'.$status.'.test/course',
+                'relevance' => 'Research course', 'status' => 'passed', 'reviewed_at' => now(),
+            ]);
+            $prospect->update(['signature' => \App\Services\Outreach\SponsorOutreach::signature($prospect)]);
+            $messages[] = $message;
+        }
+        $factory = Mockery::mock(DynamicMailerFactory::class);
+        $factory->shouldNotReceive('make');
+        $queueJob = Mockery::mock(\Illuminate\Contracts\Queue\Job::class);
+        $queueJob->shouldReceive('release')->once()->with(Mockery::type('int'));
+        $job = new SendReviewedMessage($messages[1]);
+        $job->setJob($queueJob);
+        $job->handle($factory);
+        $this->assertSame('queued', $messages[1]->fresh()->status);
+        $campaign->update(['auto_send' => false]);
+        (new SendReviewedMessage($messages[1]))->handle($factory);
+        $this->assertSame('failed', $messages[1]->fresh()->status);
+    }
+
+    public function test_daily_copy_review_saves_recommendations_once_without_sending(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $item = $this->automaticItem();
+        $ai = Mockery::mock(Assistant::class);
+        $ai->shouldReceive('json')->once()->withArgs(fn ($org, $prompt) =>
+            str_contains($prompt, $item->message->subject) && str_contains($prompt, 'Recommendations are for human review'))
+            ->andReturn(['assessment' => 'Too repetitive', 'issues' => [], 'next_changes' => ['Shorten the opening.']]);
+        $job = new \App\Jobs\ReviewDailyEmployerEmails($this->campaign, now('Europe/London')->toDateString());
+        $job->handle($ai);
+        $job->handle($ai);
+        $path = 'outreach-reviews/'.$this->campaign->id.'/'.now('Europe/London')->toDateString().'.json';
+        $report = json_decode(\Illuminate\Support\Facades\Storage::disk('local')->get($path), true);
+        $this->assertSame(['Shorten the opening.'], $report['review']['next_changes']);
+        $this->assertSame($item->message->id, $report['sample'][0]['message_id']);
+        $this->assertSame('draft', $item->message->fresh()->status);
+        Queue::assertNotPushed(SendReviewedMessage::class);
+    }
+
 }

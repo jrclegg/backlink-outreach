@@ -21,7 +21,7 @@ Cutover:
 2. Create the PostgreSQL schema with a one-off `php artisan migrate --force`; export/import data preserving IDs, timestamps, JSON, encrypted values, contacts, suppression records, messages and campaign state. A cross-database import implementation is still required; migrations alone do NOT migrate existing records.
 3. Verify counts, relationships, encrypted inbox access, sent history and duplicate protection. Do not import active queue reservations or replay completed outbound jobs.
 4. Verify lead feed, AI research/drafting, rejection checks and a controlled send/reply test. Ensure no unrelated existing project campaigns become enabled.
-5. Stop local automation before activating server automation, take a final consistent snapshot and import any final changes. Enable ONLY the intended employer campaign. Confirm daily cadence, 07:15 Europe/London and limit 50.
+5. Stop local automation before activating server automation, take a final consistent snapshot and import any final changes. Enable ONLY the intended employer campaign. Confirm daily cadence, 07:15 Europe/London and limit 20.
 6. Check actual next-day batch execution, worker restarts, failed-job alerts, and managed database backup/restore.
 
 The image has not yet been built or exercised on App Platform. Server migration, feed configuration, account connection and live validation remain required. File uploads need persistent object storage if used.

@@ -49,7 +49,7 @@ class ClaudeCodeAssistant
                 ? 'Use live web search (at most 8 searches). Include in sources only exact URLs actually found or opened with web search, including the placement URLs. Use cited_text only for exact quotes you saw; otherwise use an empty string. If search fails, return no sources and explain in text. '
                 : 'Do not browse. Return an empty sources array. ';
             // Never let an inherited API key silently switch subscription usage to API billing.
-            $result = Process::env(['ANTHROPIC_API_KEY' => false])->path($directory)->timeout($search ? 420 : 180)
+            $result = Process::env(['ANTHROPIC_API_KEY' => false])->path($directory)->timeout($search ? 900 : 180)
                 ->input($prompt."\nTask:\n".json_encode($messages))->run($command);
             $data = json_decode($result->output(), true);
             if (! $result->successful() || ! is_array($data) || ($data['is_error'] ?? true)) {

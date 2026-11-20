@@ -17,6 +17,15 @@ class Mailbox
         if (! filter_var($data['from'], FILTER_VALIDATE_EMAIL)) {
             return null;
         }
+        // Several inbox records can share one mailbox through aliases (e.g. NatureTech and Invoice Customiser on one Zoho login).
+        // Each keeps only mail addressed to it: an alias record takes mail to its alias, the main record takes the rest.
+        $to = strtolower($data['to'] ?? '');
+        $siblings = EmailInbox::where('organization_id', $inbox->organization_id)->whereKeyNot($inbox->id)
+            ->where('imap_host', $inbox->imap_host)->where('imap_username', $inbox->imap_username)->get();
+        if ($to && $siblings->isNotEmpty() && $to !== strtolower($inbox->sender_address)
+            && ($inbox->from_address || $siblings->contains(fn ($s) => $s->from_address && strtolower($s->sender_address) === $to))) {
+            return null;
+        }
         $id = trim($data['message_id'] ?? '', "<> \t\r\n");
         if (! $id) {
             $id = hash('sha256', json_encode(array_intersect_key($data, array_flip(['from', 'to', 'subject', 'body'])))).'@import.local';

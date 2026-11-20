@@ -22,7 +22,7 @@ class PrepareEmployerBatch implements ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 700;
+    public int $timeout = 1500;
 
     public bool $failOnTimeout = true;
 
