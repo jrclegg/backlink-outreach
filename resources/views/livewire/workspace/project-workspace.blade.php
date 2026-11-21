@@ -1,17 +1,26 @@
-<div wire:init="loadSitePages" wire:poll.8s class="workspace space-y-6">
-    <header class="flex flex-wrap items-start justify-between gap-4">
-        <div><a href="{{ route('projects.index') }}" wire:navigate class="text-sm text-teal-700">← All projects</a><h1 class="text-display mt-2">{{ $project->name }}</h1><p class="text-caption">{{ $project->website_url }}</p></div>
-        <div class="flex gap-2"><a href="{{ route('outreach.create',['project'=>$project->id]) }}" wire:navigate class="btn-primary">New AI campaign</a><a href="{{ route('projects.employer-outreach',$project) }}" wire:navigate class="btn-secondary">Employer outreach</a><a href="{{ route('ai.settings') }}" wire:navigate class="btn-secondary">AI settings</a><a href="{{ route('inboxes.create') }}" wire:navigate class="btn-secondary">Connect email</a></div>
+<div wire:init="loadSitePages" wire:poll.8s class="workspace page">
+    <header class="space-y-3">
+        <a href="{{ route('projects.index') }}" wire:navigate class="crumb"><x-icon name="arrow-left" class="size-3.5" />Projects</a>
+        <div class="page-header">
+            <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2.5"><h1 class="page-title">{{ $project->name }}</h1>@if($project->client_name)<span class="badge badge-violet badge-plain">{{ $project->client_name }}</span>@endif</div>
+                <a href="{{ $project->website_url }}" target="_blank" rel="noopener noreferrer" class="page-subtitle inline-flex items-center gap-1 hover:text-zinc-900">{{ preg_replace('#^https?://#', '', $project->website_url) }}<x-icon name="external" class="size-3" /></a>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('projects.employer-outreach',$project) }}" wire:navigate class="btn-ghost"><x-icon name="briefcase" />Employer outreach</a>
+                <a href="{{ route('outreach.create',['project'=>$project->id]) }}" wire:navigate class="btn-primary"><x-icon name="plus" />New AI campaign</a>
+            </div>
+        </div>
     </header>
-    @if($notice)<div role="status" class="rounded-lg bg-teal-50 border border-teal-200 p-3 text-sm">{{ $notice }}</div>@endif
-    @if($errors->any())<div role="alert" class="rounded-lg bg-rose-50 p-3 text-rose-800 text-sm">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif
-    <nav class="flex flex-wrap gap-2 border-b border-border pb-3" aria-label="Project sections">
-        @foreach(['research'=>'Research & opportunities','mail'=>'Project inbox','context'=>'Project context'] as $key=>$label)
-            <button wire:click="$set('tab','{{ $key }}')" class="{{ $tab===$key ? 'btn-primary' : 'btn-secondary' }}">{{ $label }}</button>
+    @if($notice)<div role="status" class="alert alert-success">{{ $notice }}</div>@endif
+    @if($errors->any())<div role="alert" class="alert alert-error"><div>@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div></div>@endif
+    <nav class="flex gap-6 overflow-x-auto border-b border-border" aria-label="Project sections">
+        @foreach(['research'=>'Link research','mail'=>'Inbox','context'=>'Project context'] as $key=>$label)
+            <button wire:click="$set('tab','{{ $key }}')" class="-mb-px whitespace-nowrap border-b-2 pb-3 text-sm font-medium transition-colors {{ $tab===$key ? 'border-zinc-900 text-zinc-900' : 'border-transparent text-zinc-500 hover:text-zinc-900' }}">{{ $label }}</button>
         @endforeach
     </nav>
     @if($tab==='context')
-        <section class="panel"><h2 class="text-heading">Help AI understand this project</h2><p class="text-caption mt-1">Audience, geography, useful resources, your voice, and any outreach preferences.</p>
+        <section class="panel max-w-3xl"><h2 class="section-title">Help AI understand this project</h2><p class="text-sm text-zinc-500 mt-1">Audience, geography, useful resources, your voice, and any outreach preferences.</p>
             <form wire:submit="saveContext" class="space-y-3 mt-4"><textarea aria-label="Project context" wire:model="projectNotes" rows="8" class="field"></textarea><button class="btn-primary">Save context</button></form>
         </section>
     @elseif($tab==='research')
@@ -61,7 +70,7 @@
             <section class="panel text-center py-10"><h3 class="text-heading">Start with a page worth linking to</h3><p class="text-caption mt-2">Choose a website page above and save it as a target, then ask AI to research opportunities.</p></section>
         @endforelse
     @elseif($tab==='mail')
-        <div class="flex flex-wrap gap-3 items-center"><button wire:click="compose" class="btn-primary">New email</button><button wire:click="sync" wire:loading.attr="disabled" class="btn-secondary">Sync inboxes</button><a href="{{ route('mail.unassigned') }}" wire:navigate class="text-sm text-teal-700">Unassigned mail</a></div>
+        <div class="flex flex-wrap gap-2 items-center"><button wire:click="compose" class="btn-primary"><x-icon name="pencil" />New email</button><button wire:click="sync" wire:loading.attr="disabled" class="btn-secondary"><x-icon name="refresh" class="size-3.5" />Sync</button><a href="{{ route('mail.unassigned') }}" wire:navigate class="btn-ghost ml-auto">Unsorted mail</a></div>
         @forelse($accounts as $account)<div class="text-caption">{{ $account->email_address }} · Last sync {{ $account->last_polled_at?->diffForHumans() ?? 'not yet run' }} @if($account->sync_error)<span class="text-rose-700">{{ $account->sync_error }}</span>@endif</div>@empty<p class="panel">Connect an email account and assign it to this project to get started.</p>@endforelse
         <div class="grid lg:grid-cols-3 gap-5">
             <section class="panel space-y-3"><input wire:model.live.debounce.300ms="search" class="field" placeholder="Search conversations" aria-label="Search conversations"><select wire:model.live="mailFilter" class="field" aria-label="Conversation filter"><option value="all">Open conversations</option><option value="unread">Unread</option><option value="archived">Archived</option></select>
@@ -85,5 +94,5 @@
             </section>
         </div>
     @endif
-    <div wire:loading wire:target="research,generateDraft,draftOpportunity,saveDraft,send,sync,checkLink" role="status" class="fixed bottom-5 right-5 bg-zinc-900 text-white rounded-lg px-4 py-3 text-sm shadow-lg">Working…</div>
+    <div wire:loading wire:target="research,generateDraft,draftOpportunity,saveDraft,send,sync,checkLink" role="status" class="fixed bottom-5 right-5 bg-zinc-900 text-white rounded-lg px-4 py-2.5 text-sm shadow-lg">Working…</div>
 </div>

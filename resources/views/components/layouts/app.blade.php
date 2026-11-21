@@ -3,99 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $title ?? 'Backlink Outreach' }}</title>
+    <title>{{ isset($title) ? $title.' · Outreach' : 'Outreach' }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
-<body class="bg-surface text-text-primary">
-    <div class="flex h-screen">
-        <!-- Left Navigation -->
-        <aside class="hidden md:flex w-48 lg:w-64 shrink-0 border-r border-border bg-surface flex-col">
-            <!-- Logo / Org -->
-            <div class="px-8 py-8 border-b border-border">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h1 class="text-heading">Backlinks</h1>
-                        @if(auth()->check() && auth()->user()->currentOrganization)
-                            <p class="text-caption mt-1">{{ auth()->user()->currentOrganization->name }}</p>
-                        @endif
-                    </div>
+@php
+    $nav = [
+        ['Home', 'dashboard', 'home', 'dashboard'],
+        ['AI campaigns', 'outreach.index', 'campaigns', 'outreach.*'],
+        ['Projects', 'projects.index', 'projects', 'projects.*'],
+        ['Unsorted mail', 'mail.unassigned', 'inbox', 'mail.*'],
+    ];
+    $setup = [
+        ['Email accounts', 'inboxes.index', 'mail', 'inboxes.*'],
+        ['AI settings', 'ai.settings', 'sparkles', 'ai.*'],
+        ['Opt-outs', 'suppressions.index', 'block', 'suppressions.*'],
+    ];
+    $older = [
+        ['Prospects', 'prospects.index', 'users', 'prospects.*'],
+        ['Find prospects', 'discover.index', 'search', 'discover.*'],
+        ['Backlink search', 'backlink-graph.search', 'link', 'backlink-graph.*'],
+        ['Email sequences', 'campaigns.create', 'queue', 'campaigns.*'],
+    ];
+    $olderOpen = collect($older)->contains(fn ($i) => request()->routeIs($i[3]));
+@endphp
+<body class="bg-canvas text-zinc-900 antialiased" x-data="{ menu: false }">
+    <div class="flex min-h-screen">
+        <!-- Mobile backdrop -->
+        <div x-show="menu" x-transition.opacity x-cloak @click="menu = false" class="fixed inset-0 z-30 bg-zinc-900/30 md:hidden"></div>
+
+        <aside :data-open="menu" class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-white transition-transform max-md:-translate-x-full max-md:data-open:translate-x-0 md:sticky md:top-0 md:h-screen md:w-60">
+            <div class="flex items-center gap-2.5 px-5 h-16 shrink-0">
+                <div class="flex size-8 items-center justify-center rounded-lg bg-zinc-900 text-white"><x-icon name="campaigns" class="size-4" /></div>
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold leading-tight">Outreach</p>
+                    @if(auth()->check() && auth()->user()->currentOrganization)
+                        <p class="truncate text-xs text-zinc-500 leading-tight">{{ auth()->user()->currentOrganization->name }}</p>
+                    @endif
                 </div>
+                <button @click="menu = false" class="btn-ghost btn-sm ml-auto px-2 md:hidden" aria-label="Close menu"><x-icon name="x" /></button>
             </div>
 
-            <!-- Navigation Menu -->
-            <nav class="flex-1 overflow-y-auto px-4 py-6 space-y-1">
-                @if(auth()->check())
-                    <a href="{{ route('dashboard') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Dashboard</a>
-                    <a href="{{ route('outreach.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body font-semibold hover:bg-surface-inset transition-colors">AI campaigns</a>
-                    <a href="{{ route('projects.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Projects</a>
-                    <a href="{{ route('inboxes.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Email Inboxes</a>
-
-                    <a href="{{ route('mail.unassigned') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset">Unassigned mail</a>
-                    <a href="{{ route('ai.settings') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset">AI settings</a>
-                    <!-- Prospects Section -->
-                    <div class="mt-6">
-                        <p class="px-4 py-2 text-caption font-medium text-text-muted">Prospects</p>
-                        <a href="{{ route('prospects.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">View All</a>
-                        <a href="{{ route('prospects.create') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Add Manually</a>
-                        <a href="{{ route('prospects.import') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Import CSV</a>
+            @auth
+            <nav class="flex-1 overflow-y-auto px-3 pb-4" aria-label="Main">
+                <div class="space-y-0.5">
+                    @foreach($nav as [$label, $route, $icon, $pattern])
+                        <a href="{{ route($route) }}" wire:navigate class="nav-item {{ request()->routeIs($pattern) ? 'is-active' : '' }}"><x-icon :name="$icon" />{{ $label }}</a>
+                    @endforeach
+                </div>
+                <p class="nav-heading">Setup</p>
+                <div class="space-y-0.5">
+                    @foreach($setup as [$label, $route, $icon, $pattern])
+                        <a href="{{ route($route) }}" wire:navigate class="nav-item {{ request()->routeIs($pattern) ? 'is-active' : '' }}"><x-icon :name="$icon" />{{ $label }}</a>
+                    @endforeach
+                </div>
+                <details class="group mt-1" @if($olderOpen) open @endif>
+                    <summary class="nav-heading flex items-center gap-1 list-none hover:text-zinc-600">Older tools<x-icon name="chevron-right" class="size-3 transition-transform group-open:rotate-90" /></summary>
+                    <div class="space-y-0.5">
+                        @foreach($older as [$label, $route, $icon, $pattern])
+                            <a href="{{ route($route) }}" wire:navigate class="nav-item {{ request()->routeIs($pattern) ? 'is-active' : '' }}"><x-icon :name="$icon" />{{ $label }}</a>
+                        @endforeach
                     </div>
-
-                    <!-- Discovery Section -->
-                    <div class="mt-6">
-                        <p class="px-4 py-2 text-caption font-medium text-text-muted">Discovery</p>
-                        <a href="{{ route('discover.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Find Prospects</a>
-                        <a href="{{ route('backlink-graph.search') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Backlink Search</a>
-                    </div>
-
-                    <!-- Campaigns Section -->
-                    <div class="mt-6">
-                        <p class="px-4 py-2 text-caption font-medium text-text-muted">Campaigns</p>
-                        <a href="{{ route('campaigns.create') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">New Campaign</a>
-                    </div>
-
-                    <!-- Admin Section -->
-                    <div class="mt-6">
-                        <p class="px-4 py-2 text-caption font-medium text-text-muted">Admin</p>
-                        <a href="{{ route('suppressions.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Suppression List</a>
-                    </div>
-                @endif
+                </details>
             </nav>
 
-            <!-- User Menu -->
-            <div class="border-t border-border px-4 py-6 space-y-2">
-                @if(auth()->check())
-                    <div class="text-caption">{{ auth()->user()->name }}</div>
-                    <form action="{{ route('logout') }}" method="POST">
-                        @csrf
-                        <button type="submit" class="w-full text-left px-4 py-2 text-body text-danger hover:bg-danger-subtle rounded-lg transition-colors">Logout</button>
-                    </form>
-                @else
-                    <a href="{{ route('login') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Login</a>
-                @endif
+            <div class="flex items-center gap-2.5 border-t border-border px-4 py-3">
+                <div class="flex size-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-600">{{ collect(explode(' ', auth()->user()->name))->map(fn ($w) => mb_substr($w, 0, 1))->take(2)->implode('') }}</div>
+                <p class="min-w-0 flex-1 truncate text-sm font-medium">{{ auth()->user()->name }}</p>
+                <form action="{{ route('logout') }}" method="POST">@csrf<button type="submit" class="btn-ghost btn-sm px-2" title="Log out" aria-label="Log out"><x-icon name="logout" /></button></form>
             </div>
+            @endauth
         </aside>
 
-        <!-- Main Content -->
-        <main class="flex-1 min-w-0 overflow-y-auto">
+        <div class="flex min-w-0 flex-1 flex-col">
             @auth
-            <nav class="md:hidden flex flex-wrap gap-4 p-4 border-b border-border text-sm" aria-label="Mobile navigation">
-                <a href="{{ route('dashboard') }}" wire:navigate>Dashboard</a>
-                <a href="{{ route('outreach.index') }}" wire:navigate>AI campaigns</a>
-                <a href="{{ route('projects.index') }}" wire:navigate>Projects</a>
-                <a href="{{ route('inboxes.index') }}" wire:navigate>Accounts</a>
-                <a href="{{ route('mail.unassigned') }}" wire:navigate>Unassigned mail</a>
-            </nav>
+            <header class="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-white/90 px-4 backdrop-blur md:hidden">
+                <button @click="menu = true" class="btn-ghost btn-sm px-2" aria-label="Open menu"><x-icon name="menu" class="size-5" /></button>
+                <p class="text-sm font-semibold">{{ $title ?? 'Outreach' }}</p>
+            </header>
             @endauth
-            <div class="max-w-7xl mx-auto px-4 lg:px-8 py-8">
-                <!-- Page Header -->
-                @if(isset($slot))
+            <main class="flex-1">
+                <div class="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 md:py-10 lg:px-10">
                     {{ $slot }}
-                @endif
-            </div>
-        </main>
+                </div>
+            </main>
+        </div>
     </div>
-
+    <style>[x-cloak]{display:none!important}</style>
     @livewireScripts
 </body>
 </html>

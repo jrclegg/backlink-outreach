@@ -134,7 +134,7 @@ class CampaignHarnessTest extends TestCase
         $this->assertSame('off', $c->mode());
         $this->assertSame(['rival.test'], $c->excluded_domains);
         $this->assertTrue($c->project->emailInboxes()->whereKey($this->inbox->id)->exists());
-        Livewire::test(CampaignIndex::class)->assertSee('Hiring managers')->assertSee('Client: Smith Recruitment');
+        Livewire::test(CampaignIndex::class)->assertSee('Hiring managers')->assertSee('Smith Recruitment');
     }
 
     public function test_drafts_are_approved_edited_or_skipped_from_the_campaign_page(): void

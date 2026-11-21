@@ -425,6 +425,6 @@ class OutreachWorkspaceTest extends TestCase
     {
         $thread = $this->thread();
         $this->message($thread, ['direction' => 'inbound', 'status' => 'received', 'received_at' => now(), 'body' => 'Hello']);
-        $this->get(route('dashboard'))->assertOk()->assertSee('Unread conversations')->assertSee('Coworking Space Hub');
+        $this->get(route('dashboard'))->assertOk()->assertSee('Latest replies')->assertSee('Coworking Space Hub')->assertSee('Replies in the last 7 days');
     }
 }

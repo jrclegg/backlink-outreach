@@ -1,70 +1,40 @@
-<div>
-    <div class="mb-8 flex justify-between items-center">
+<div class="page">
+    <header class="page-header">
         <div>
-            <h1 class="text-display">Projects</h1>
-            <p class="text-caption mt-2">Manage your backlink outreach projects</p>
+            <h1 class="page-title">Projects</h1>
+            <p class="page-subtitle">Your websites and your clients. Each one has its own inbox and campaigns.</p>
         </div>
-        <button wire:click="toggleForm" class="px-4 py-2 bg-accent text-white rounded-lg text-body hover:opacity-90 transition-opacity">
-            + New Project
-        </button>
-    </div>
+        <button wire:click="toggleForm" class="{{ $showForm ? 'btn-secondary' : 'btn-primary' }}">@if($showForm) Cancel @else<x-icon name="plus" />New project @endif</button>
+    </header>
 
-    <!-- Create Project Form -->
     @if($showForm)
-        <div class="border border-border rounded-lg p-6 mb-8 bg-surface-muted">
-            <h2 class="text-heading mb-4">Create New Project</h2>
-            <form wire:submit="createProject" class="space-y-4">
-                <div>
-                    <label class="text-label block mb-2">Project Name</label>
-                    <input type="text" wire:model="name" placeholder="e.g., Tech Blog Backlinks" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                    @error('name') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
-                </div>
-
-                <div>
-                    <label class="text-label block mb-2">Website URL</label>
-                    <input type="url" wire:model="website_url" placeholder="https://example.com" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                    @error('website_url') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
-                </div>
-
-                <div>
-                    <label class="text-label block mb-2">Client name (leave blank if it's your own project)</label>
-                    <input type="text" wire:model="client_name" placeholder="e.g. Smith Recruitment" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
-                </div>
-
-                <div>
-                    <label class="text-label block mb-2">Notes (Optional)</label>
-                    <textarea wire:model="notes" placeholder="Any notes about this project..." class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" rows="3"></textarea>
-                    @error('notes') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
-                </div>
-
-                <div class="flex gap-4">
-                    <button type="submit" class="flex-1 px-4 py-2 bg-accent text-white rounded-lg text-body hover:opacity-90 transition-opacity">
-                        Create Project
-                    </button>
-                    <button type="button" wire:click="toggleForm" class="flex-1 px-4 py-2 border border-border rounded-lg text-body hover:bg-surface-inset transition-colors">
-                        Cancel
-                    </button>
-                </div>
-            </form>
-        </div>
+        <form wire:submit="createProject" class="panel space-y-4">
+            <p class="section-title">New project</p>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <label class="label">Name<input type="text" wire:model="name" placeholder="e.g. Beat Darwin" class="field" />@error('name')<span class="hint block text-rose-700">{{ $message }}</span>@enderror</label>
+                <label class="label">Website<input type="url" wire:model="website_url" placeholder="https://example.com" class="field" />@error('website_url')<span class="hint block text-rose-700">{{ $message }}</span>@enderror</label>
+            </div>
+            <label class="label">Client name <span class="font-normal text-zinc-500">(leave blank if it's your own)</span><input type="text" wire:model="client_name" placeholder="e.g. Smith Recruitment" class="field" /></label>
+            <label class="label">Notes <span class="font-normal text-zinc-500">(optional)</span><textarea wire:model="notes" rows="3" class="field" placeholder="Audience, voice, anything the AI should know"></textarea></label>
+            <div class="flex justify-end gap-2"><button type="button" wire:click="toggleForm" class="btn-ghost">Cancel</button><button type="submit" class="btn-primary">Create project</button></div>
+        </form>
     @endif
 
-    @if($projects->count() > 0)
-        <div class="grid gap-4">
-            @foreach($projects as $project)
-                <div class="border border-border rounded-lg p-6 hover:bg-surface-inset transition-colors">
-                    <h3 class="text-heading"><a href="{{ route('projects.workspace', $project) }}" wire:navigate class="text-teal-700 hover:underline">{{ $project->name }} →</a>@if($project->client_name) <span class="text-caption">Client: {{ $project->client_name }}</span>@endif</h3>
-                    <p class="text-caption mt-2">{{ $project->website_url }}</p>
-                    @if($project->notes)
-                        <p class="text-caption mt-2">{{ $project->notes }}</p>
-                    @endif
+    <div class="panel-flush">
+        @forelse($projects as $project)
+            <a href="{{ route('projects.workspace', $project) }}" wire:navigate class="row" wire:key="project-{{ $project->id }}">
+                <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-sm font-semibold text-zinc-600">{{ mb_strtoupper(mb_substr($project->name, 0, 1)) }}</div>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2"><p class="truncate text-sm font-medium">{{ $project->name }}</p>@if($project->client_name)<span class="badge badge-violet badge-plain">{{ $project->client_name }}</span>@endif</div>
+                    <p class="truncate text-xs text-zinc-500">{{ preg_replace('#^https?://#', '', $project->website_url) }}@if($project->notes) · {{ \Illuminate\Support\Str::limit($project->notes, 80) }}@endif</p>
                 </div>
-            @endforeach
-        </div>
-    @else
-        <x-ui.empty-state
-            title="No Projects Created"
-            description="Start by creating a project for each website you want to build backlinks for."
-        />
-    @endif
+                <x-icon name="chevron-right" class="size-4 text-zinc-300" />
+            </a>
+        @empty
+            <div class="px-6 py-16 text-center">
+                <p class="text-sm font-semibold">No projects yet</p>
+                <p class="mt-1 text-sm text-zinc-500">Create a project for each website or client you do outreach for.</p>
+            </div>
+        @endforelse
+    </div>
 </div>
