@@ -6,7 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class Project extends Model
 {
-    protected $fillable = ['organization_id', 'name', 'website_url', 'notes'];
+    protected $fillable = ['organization_id', 'name', 'website_url', 'notes', 'client_name'];
+
+    public function leadCampaigns()
+    {
+        return $this->hasMany(LeadCampaign::class);
+    }
 
     public function organization()
     {

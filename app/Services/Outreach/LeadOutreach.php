@@ -6,6 +6,7 @@ use App\Models\LeadBatch;
 use App\Models\LeadCampaign;
 use App\Models\LeadProspect;
 use App\Models\OutreachMessage;
+use App\Models\Project;
 use App\Models\Suppression;
 use Illuminate\Support\Facades\DB;
 class LeadOutreach {
@@ -14,14 +15,33 @@ class LeadOutreach {
         if ($batch->wasRecentlyCreated) ResearchLeadBatch::dispatch($batch);
         return $batch;
     }
+    // Start today's research now instead of waiting for the send time, or search again once today's batch has finished.
+    public function runNow(LeadCampaign $campaign): bool {
+        return DB::transaction(function () use ($campaign) {
+            $c = LeadCampaign::whereKey($campaign->id)->lockForUpdate()->firstOrFail();
+            $batch = LeadBatch::firstOrCreate(['lead_campaign_id'=>$c->id,'day'=>now('Europe/London')->toDateString()]);
+            if (! $batch->wasRecentlyCreated) {
+                if (! in_array($batch->status,['ready','needs_attention','needs_contacts','failed','paused']) || $batch->prospects()->whereIn('status',['queued','drafting'])->exists()) return false;
+                $batch->update(['status'=>'queued','error'=>null]);
+            }
+            ResearchLeadBatch::dispatch($batch)->afterCommit();
+            return true;
+        });
+    }
     public function eligible(LeadProspect $p): bool {
         $c = $p->campaign; $org = $c->project->organization_id;
         foreach ($c->excluded_domains ?? [] as $domain) {
             if ($p->domain === $domain || str_ends_with($p->domain, '.'.$domain)) return false;
         }
         if ($p->status === 'excluded' || Suppression::where('organization_id',$org)->where('email',$p->email)->exists()) return false;
-        // One approach per business, across all of the organisation's projects.
+        // One approach per business: across all of your own projects, or within one client's project.
+        // A client's contacts never block your outreach or another client's, and vice versa.
+        $project = $c->project;
+        $clientProjects = Project::where('organization_id',$org)->whereNotNull('client_name')->pluck('id');
         return ! OutreachMessage::whereHas('emailInbox',fn($q)=>$q->where('organization_id',$org))
+            ->when($project->client_name,
+                fn($q)=>$q->whereHas('conversation',fn($t)=>$t->where('project_id',$project->id)),
+                fn($q)=>$q->whereDoesntHave('conversation',fn($t)=>$t->whereIn('project_id',$clientProjects)))
             ->where(fn($q)=>$q->where('to_email','like','%@'.$p->domain)->orWhere('from_email','like','%@'.$p->domain))
             ->whereIn('status',['queued','sending','sent','received'])->when($p->outreach_message_id,fn($q)=>$q->where('id','!=',$p->outreach_message_id))->exists();
     }

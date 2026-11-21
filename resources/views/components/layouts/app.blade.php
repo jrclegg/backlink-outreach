@@ -27,6 +27,7 @@
             <nav class="flex-1 overflow-y-auto px-4 py-6 space-y-1">
                 @if(auth()->check())
                     <a href="{{ route('dashboard') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Dashboard</a>
+                    <a href="{{ route('outreach.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body font-semibold hover:bg-surface-inset transition-colors">AI campaigns</a>
                     <a href="{{ route('projects.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Projects</a>
                     <a href="{{ route('inboxes.index') }}" wire:navigate class="block px-4 py-2 rounded-lg text-body hover:bg-surface-inset transition-colors">Email Inboxes</a>
 
@@ -80,6 +81,7 @@
             @auth
             <nav class="md:hidden flex flex-wrap gap-4 p-4 border-b border-border text-sm" aria-label="Mobile navigation">
                 <a href="{{ route('dashboard') }}" wire:navigate>Dashboard</a>
+                <a href="{{ route('outreach.index') }}" wire:navigate>AI campaigns</a>
                 <a href="{{ route('projects.index') }}" wire:navigate>Projects</a>
                 <a href="{{ route('inboxes.index') }}" wire:navigate>Accounts</a>
                 <a href="{{ route('mail.unassigned') }}" wire:navigate>Unassigned mail</a>

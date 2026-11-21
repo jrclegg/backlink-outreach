@@ -36,6 +36,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/projects/{project}/employer-outreach', \App\Livewire\Workspace\EmployerOutreachWorkspace::class)->name('projects.employer-outreach');
 
     Route::get('/projects/{project}/workspace', ProjectWorkspace::class)->name('projects.workspace');
+
+    // General AI outreach campaigns, set up from a brief in the UI.
+    Route::get('/outreach', \App\Livewire\Outreach\CampaignIndex::class)->name('outreach.index');
+    Route::get('/outreach/new', \App\Livewire\Outreach\CampaignEditor::class)->name('outreach.create');
+    Route::get('/outreach/{campaign}', \App\Livewire\Outreach\CampaignShow::class)->name('outreach.show');
+    Route::get('/outreach/{campaign}/edit', \App\Livewire\Outreach\CampaignEditor::class)->name('outreach.edit');
     Route::get('/settings/ai', AiSettings::class)->name('ai.settings');
     Route::get('/mail/unassigned', UnassignedMail::class)->name('mail.unassigned');
 

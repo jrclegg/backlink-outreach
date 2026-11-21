@@ -1,7 +1,7 @@
 <div wire:init="loadSitePages" wire:poll.8s class="workspace space-y-6">
     <header class="flex flex-wrap items-start justify-between gap-4">
         <div><a href="{{ route('projects.index') }}" wire:navigate class="text-sm text-teal-700">← All projects</a><h1 class="text-display mt-2">{{ $project->name }}</h1><p class="text-caption">{{ $project->website_url }}</p></div>
-        <div class="flex gap-2"><a href="{{ route('projects.employer-outreach',$project) }}" wire:navigate class="btn-primary">Employer outreach</a><a href="{{ route('ai.settings') }}" wire:navigate class="btn-secondary">AI settings</a><a href="{{ route('inboxes.create') }}" wire:navigate class="btn-secondary">Connect email</a></div>
+        <div class="flex gap-2"><a href="{{ route('outreach.create',['project'=>$project->id]) }}" wire:navigate class="btn-primary">New AI campaign</a><a href="{{ route('projects.employer-outreach',$project) }}" wire:navigate class="btn-secondary">Employer outreach</a><a href="{{ route('ai.settings') }}" wire:navigate class="btn-secondary">AI settings</a><a href="{{ route('inboxes.create') }}" wire:navigate class="btn-secondary">Connect email</a></div>
     </header>
     @if($notice)<div role="status" class="rounded-lg bg-teal-50 border border-teal-200 p-3 text-sm">{{ $notice }}</div>@endif
     @if($errors->any())<div role="alert" class="rounded-lg bg-rose-50 p-3 text-rose-800 text-sm">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif

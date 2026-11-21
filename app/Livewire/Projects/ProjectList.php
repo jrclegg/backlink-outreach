@@ -20,11 +20,14 @@ class ProjectList extends Component
     #[Validate('nullable|string')]
     public string $notes = '';
 
+    #[Validate('nullable|string|max:255')]
+    public string $client_name = '';
+
     public function toggleForm()
     {
         $this->showForm = !$this->showForm;
         if ($this->showForm) {
-            $this->reset('name', 'website_url', 'notes');
+            $this->reset('name', 'website_url', 'notes', 'client_name');
         }
     }
 
@@ -39,10 +42,11 @@ class ProjectList extends Component
             'name' => $this->name,
             'website_url' => $this->website_url,
             'notes' => $this->notes ?: null,
+            'client_name' => trim($this->client_name) ?: null,
         ]);
 
         $this->showForm = false;
-        $this->reset('name', 'website_url', 'notes');
+        $this->reset('name', 'website_url', 'notes', 'client_name');
     }
 
     public function render()

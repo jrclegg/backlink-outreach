@@ -27,6 +27,11 @@
                 </div>
 
                 <div>
+                    <label class="text-label block mb-2">Client name (leave blank if it's your own project)</label>
+                    <input type="text" wire:model="client_name" placeholder="e.g. Smith Recruitment" class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" />
+                </div>
+
+                <div>
                     <label class="text-label block mb-2">Notes (Optional)</label>
                     <textarea wire:model="notes" placeholder="Any notes about this project..." class="w-full px-4 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-accent" rows="3"></textarea>
                     @error('notes') <p class="text-danger text-caption mt-1">{{ $message }}</p> @enderror
@@ -48,7 +53,7 @@
         <div class="grid gap-4">
             @foreach($projects as $project)
                 <div class="border border-border rounded-lg p-6 hover:bg-surface-inset transition-colors">
-                    <h3 class="text-heading"><a href="{{ route('projects.workspace', $project) }}" wire:navigate class="text-teal-700 hover:underline">{{ $project->name }} →</a></h3>
+                    <h3 class="text-heading"><a href="{{ route('projects.workspace', $project) }}" wire:navigate class="text-teal-700 hover:underline">{{ $project->name }} →</a>@if($project->client_name) <span class="text-caption">Client: {{ $project->client_name }}</span>@endif</h3>
                     <p class="text-caption mt-2">{{ $project->website_url }}</p>
                     @if($project->notes)
                         <p class="text-caption mt-2">{{ $project->notes }}</p>
