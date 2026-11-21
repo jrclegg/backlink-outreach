@@ -132,13 +132,15 @@ class DailyOutreachTargets
                     $batch = $campaign->batches()->where('day', $now->toDateString())->first();
                     $done = $campaign->auto_send ? app(LeadOutreach::class)->approvalCount($campaign)
                         : $campaign->prospects()->whereIn('status', ['passed', 'approved'])->where('reviewed_at', '>=', $now->copy()->startOfDay())->count();
-                    if (! $batch || ! in_array($batch->status, ['ready', 'needs_attention', 'needs_contacts', 'drafting'])
+                    // A failed round (AI timeout or a brief Codex outage) is retried too, within the same daily cap.
+                    if (! $batch || ! in_array($batch->status, ['ready', 'needs_attention', 'needs_contacts', 'drafting', 'failed'])
                         || $batch->prospects()->whereIn('status', ['queued', 'drafting'])->exists() || $done >= $campaign->daily_limit) {
                         return;
                     }
                     $key = 'lead-top-ups-'.$batch->id;
                     Cache::add($key, 0, $now->copy()->endOfDay());
-                    if (Cache::get($key, 0) >= 4) {
+                    // Rounds are small (ResearchLeadBatch::ROUND_SIZE), so allow enough of them to reach the daily target.
+                    if (Cache::get($key, 0) >= 6) {
                         return;
                     }
                     Cache::increment($key);

@@ -20,6 +20,7 @@ class ResearchLeadBatch implements ShouldQueue {
     public int $timeout = 1500;
     public bool $failOnTimeout = true;
     // A small business's general inbox is fine; these addresses never reach the owner or are not for marketing.
+    const ROUND_SIZE = 5;
     const UNSUITABLE_INBOXES = '/^(no-?reply|do-?not-?reply|privacy|gdpr|dpo|data|legal|abuse|postmaster|webmaster|careers|jobs|recruitment|hr|press|media|invoices?|billing|accounts|payments|complaints)@/';
     public function __construct(public LeadBatch $batch) { $this->onQueue('research'); }
     public function handle(Assistant $ai): void {
@@ -27,7 +28,9 @@ class ResearchLeadBatch implements ShouldQueue {
         try {
             $b = $this->batch->fresh(); $c = $b->campaign;
             if (!$c->enabled) { $b->update(['status'=>'paused']); return; }
-            $count = min(12, $c->daily_limit + 4); // The quality gate rejects some, so research extra.
+            // Small rounds finish inside the AI time limits (12 at once regularly timed out both Codex and Claude);
+            // DailyOutreachTargets runs further rounds until the daily target is met.
+            $count = min(self::ROUND_SIZE, $c->daily_limit + 2);
             // Rotate the niche each round so searches keep finding new businesses.
             $focuses = $c->focuses ?: [$c->audience];
             $round = $b->prospects()->count() + now('Europe/London')->dayOfYear;

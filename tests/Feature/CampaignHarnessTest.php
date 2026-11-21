@@ -164,6 +164,17 @@ class CampaignHarnessTest extends TestCase
         $this->assertSame('archived', $b->message->conversation->fresh()->status);
     }
 
+    public function test_research_runs_in_small_rounds_and_failed_rounds_are_retried(): void
+    {
+        $c = $this->campaign(['daily_limit' => 10, 'send_time' => '00:00']);
+        $this->assertStringContainsString('Research up to 5 NEW', ResearchLeadBatch::prompt($c, min(ResearchLeadBatch::ROUND_SIZE, $c->daily_limit + 2), 'x'));
+        $batch = $c->batches()->create(['day' => now('Europe/London')->toDateString(), 'status' => 'failed', 'error' => 'Codex timed out.']);
+        app(\App\Services\Outreach\DailyOutreachTargets::class)->fill();
+        $this->assertSame('queued', $batch->fresh()->status);
+        $this->assertNull($batch->fresh()->error);
+        Queue::assertPushed(ResearchLeadBatch::class, 1);
+    }
+
     public function test_other_organisations_cannot_open_a_campaign(): void
     {
         $c = $this->campaign();
